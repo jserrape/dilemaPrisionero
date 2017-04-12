@@ -19,10 +19,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import utilidad.MensajeConsola;
 
-/**
- *
- * @author pedroj
- */
+
 public class AgenteConsola extends Agent {
     private ArrayList<ConsolaJFrame> myGui;
     private ArrayList<MensajeConsola> mensajesPendientes;
