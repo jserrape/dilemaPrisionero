@@ -19,6 +19,7 @@ import jade.domain.FIPAException;
 import jade.domain.FIPANames;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
+import jade.proto.SubscriptionInitiator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -68,13 +69,32 @@ public class AgentePrisionero extends Agent {
         } catch (FIPAException ex) {
             Logger.getLogger(AgentePrisionero.class.getName()).log(Level.SEVERE, null, ex);
         }
-        
+
         //Plantilla la exploración del mensaje para el protocolo Subscribe
-        MessageTemplate template = MessageTemplate.and(
-			MessageTemplate.MatchProtocol(FIPANames.InteractionProtocol.FIPA_SUBSCRIBE),
-			MessageTemplate.MatchPerformative(ACLMessage.CFP) );
-        
-        //addBehaviour(new InformarPartida(this, template));
+        MessageTemplate mt = MessageTemplate.and(
+                MessageTemplate.MatchProtocol(FIPANames.InteractionProtocol.FIPA_SUBSCRIBE),
+                MessageTemplate.MatchPerformative(ACLMessage.CFP));
+
+        ACLMessage msg = blockingReceive(mt);
+        addBehaviour(new InformarPartida(this, msg));
+    }
+
+    private class InformarPartida extends SubscriptionInitiator {
+
+        public InformarPartida(Agent agente, ACLMessage mensaje) {
+            super(agente, mensaje);
+        }
+
+        @Override
+        protected void handleAgree(ACLMessage inform) {
+            System.out.println("Solicitud aceptada");
+        }
+
+        @Override
+        protected void handleRefuse(ACLMessage inform) {
+            System.out.println("Solicitud rechazada");
+        }
+
     }
 
     /**
