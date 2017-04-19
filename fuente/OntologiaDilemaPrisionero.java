@@ -23,6 +23,7 @@ public class OntologiaDilemaPrisionero extends BeanOntology {
     public static final String ONTOLOGY_NAME = "Ontologia_Dilema_Prisionero";
         
     // VOCABULARIO
+    public static final String TIPO_JUEGO = "Dilema del Prisionero";
     public static final String REGISTRO_PRISIONERO = "Prisionero";
     public static final String REGISTRO_POLICIA = "Policía";
     public static final String REGISTRO_CONSOLA = "Consola";
