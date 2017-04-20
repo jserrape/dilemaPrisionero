@@ -6,11 +6,13 @@
 package agentes;
 
 import dilemaPrisionero.OntologiaDilemaPrisionero;
+import dilemaPrisionero.elementos.ProponerPartida;
 import jade.content.ContentManager;
 import jade.content.lang.Codec;
 import jade.content.lang.sl.SLCodec;
 import jade.content.onto.BeanOntologyException;
 import jade.content.onto.Ontology;
+import jade.content.onto.OntologyException;
 import jade.core.AID;
 import jade.core.Agent;
 import jade.domain.DFService;
@@ -20,10 +22,12 @@ import jade.domain.FIPAException;
 import jade.domain.FIPANames;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
+import jade.proto.ProposeResponder;
 import jade.proto.SubscriptionInitiator;
 import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.swing.Action;
 
 /**
  *
@@ -107,6 +111,27 @@ public class AgentePrisionero extends Agent {
         System.out.println("Finaliza la ejecución de " + this.getName());
     }
 
+    public class ProposicionPartida extends ProposeResponder {
+
+        public ProposicionPartida(Agent father, MessageTemplate template) {
+            super(father, template);
+        }
+
+        @Override
+        public ACLMessage prepareResponse(ACLMessage propuesta) {
+
+            try {
+                Action a = (Action) manager.extractContent(propuesta);
+                ProponerPartida partidaPropuesta = (ProponerPartida) a.getAction();
+            } catch (Codec.CodecException | OntologyException ex) {
+                Logger.getLogger(AgentePrisionero.class.getName()).log(Level.SEVERE, null, ex);
+            }
+            
+
+            return null;
+        }
+    }
+
     private class InformarPartida extends SubscriptionInitiator {
 
         public InformarPartida(Agent agente, ACLMessage mensaje) {
@@ -126,7 +151,16 @@ public class AgentePrisionero extends Agent {
         //Maneja la informacion enviada: INFORM
         @Override
         protected void handleInform(ACLMessage inform) {
+
             System.out.println("Ha llegado un mensaje INFORM");
+
+            try {
+                juegos.elementos.GanadorPartida gp = (juegos.elementos.GanadorPartida) manager.extractContent(inform);
+                System.out.println("Ha ganado el jugador " + gp.getJugador().getAgenteJugador().getLocalName() + " en la partida " + gp.getPartida().getIdPartida());
+            } catch (Codec.CodecException | OntologyException ex) {
+                Logger.getLogger(AgentePrisionero.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
         }
 
     }
