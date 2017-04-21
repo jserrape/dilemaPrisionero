@@ -3,6 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
+//-container -host 192.168.38.100 -agent serrano:agentes.AgenteConsola
 package agentes;
 
 import dilemaPrisionero.OntologiaDilemaPrisionero;
@@ -52,6 +53,7 @@ public class AgentePrisionero extends Agent {
 
     @Override
     protected void setup() {
+        System.out.println("Inicia el setup");
         //Inicialización de las variables del agente
         mensajesParaConsola = new ArrayList();
 
@@ -100,6 +102,8 @@ public class AgentePrisionero extends Agent {
         addBehaviour(new TareaEnvioConsola());
         
         //addBehaviour(new InformarPartida(this, mensaje));
+        
+        mensajesParaConsola.add("Conectado el agente "+this.getLocalName());
     }
 
     /**
@@ -202,6 +206,7 @@ public class AgentePrisionero extends Agent {
                 result = DFService.search(myAgent, template);
                 if (result.length > 0) {
                     consola = result[0].getName();
+                    System.out.println("Encontrada cosola");
                 } else {
                     //No se ha encontrado agente consola
                     consola = null;
