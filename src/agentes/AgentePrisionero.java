@@ -13,8 +13,11 @@ import jade.content.lang.sl.SLCodec;
 import jade.content.onto.BeanOntologyException;
 import jade.content.onto.Ontology;
 import jade.content.onto.OntologyException;
+import jade.content.onto.basic.Action;
 import jade.core.AID;
 import jade.core.Agent;
+import jade.core.behaviours.CyclicBehaviour;
+import jade.core.behaviours.TickerBehaviour;
 import jade.domain.DFService;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
@@ -27,7 +30,7 @@ import jade.proto.SubscriptionInitiator;
 import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.swing.Action;
+
 
 /**
  *
@@ -36,8 +39,8 @@ import javax.swing.Action;
 public class AgentePrisionero extends Agent {
 
     //Variables del agente
-    private AID[] agentesConsola;
-    private ArrayList<String> mensajesPendientes;
+    private AID consola; //Agente consola
+    private ArrayList<String> mensajesParaConsola;
 
     private ContentManager manager = (ContentManager) getContentManager();
 
@@ -50,7 +53,7 @@ public class AgentePrisionero extends Agent {
     @Override
     protected void setup() {
         //Inicialización de las variables del agente
-        mensajesPendientes = new ArrayList();
+        mensajesParaConsola = new ArrayList();
 
         //Obtenemos la instancia de la ontología y registramos el lenguaje
         //y la ontología para poder completar el contenido de los mensajes
@@ -92,7 +95,11 @@ public class AgentePrisionero extends Agent {
         id.setLocalName(OntologiaDilemaPrisionero.REGISTRO_POLICIA);
         mensaje.addReceiver(id);
 
-        addBehaviour(new InformarPartida(this, mensaje));
+        
+        addBehaviour(new TareaBuscarConsola(this, 5000));
+        addBehaviour(new TareaEnvioConsola());
+        
+        //addBehaviour(new InformarPartida(this, mensaje));
     }
 
     /**
@@ -162,6 +169,66 @@ public class AgentePrisionero extends Agent {
             }
 
         }
+    }
+    
+    /**
+     * Tarea para buscar un agente consola
+     */
+    public class TareaBuscarConsola extends TickerBehaviour {
 
+        /**
+         * Constructor parametrizado de la clase
+         *
+         * @param a Agente que llama a la tarea
+         * @param period Periodo cada el que se realiza la tarea
+         */
+        public TareaBuscarConsola(Agent a, long period) {
+            super(a, period);
+        }
+
+        @Override
+        protected void onTick() {
+            DFAgentDescription template;
+            ServiceDescription sd;
+            DFAgentDescription[] result;
+
+            //Busca agente consola
+            template = new DFAgentDescription();
+            sd = new ServiceDescription();
+            sd.setName("Consola");
+            template.addServices(sd);
+
+            try {
+                result = DFService.search(myAgent, template);
+                if (result.length > 0) {
+                    consola = result[0].getName();
+                } else {
+                    //No se ha encontrado agente consola
+                    consola = null;
+                }
+            } catch (FIPAException fe) {
+                fe.printStackTrace();
+            }
+        }
+    }
+
+    /**
+     * Tarea para enviar los mensajes pendientes a la consola
+     */
+    public class TareaEnvioConsola extends CyclicBehaviour {
+
+        @Override
+        public void action() {
+            if (consola != null && !mensajesParaConsola.isEmpty()) {
+                ACLMessage mensaje = new ACLMessage(ACLMessage.INFORM);
+                mensaje.setSender(myAgent.getAID());
+                mensaje.addReceiver(consola);
+                mensaje.setContent(mensajesParaConsola.remove(0));
+
+                myAgent.send(mensaje);
+            } else {
+                block();
+            }
+        }
     }
 }
