@@ -29,6 +29,7 @@ import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import jade.proto.AchieveREInitiator;
 import jade.proto.AchieveREResponder;
+import jade.proto.ContractNetResponder;
 import jade.proto.ProposeResponder;
 import jade.proto.SubscriptionInitiator;
 import java.util.ArrayList;
@@ -123,6 +124,10 @@ public class Prisionero extends Agent {
                     getContentManager().registerOntology(ontologia);
                     System.out.println("Suscrito a la plataforma;");
                     System.out.println("Registrados en :" + agree.getSender().getName());
+                    
+                    MessageTemplate plantilla2 = ContractNetResponder.createMessageTemplate(FIPANames.InteractionProtocol.FIPA_PROPOSE);
+                    mensajesPendientes.add("illo que me han aceptado la suscripcion");
+                    //addBehaviour(new ProposicionPartida(this.myAgent, plantilla2));
                 } else {
                     System.out.println("Recibido mensaje " + agree.getSender().getName() + " cuyo contenido no es el esperado.");
                 }
