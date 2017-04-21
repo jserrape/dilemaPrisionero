@@ -17,7 +17,7 @@ import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import java.util.ArrayList;
 import java.util.Iterator;
-import utilidad.MensajeConsola;
+import util.MensajeConsola;
 
 /**
  *

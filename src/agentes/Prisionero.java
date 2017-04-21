@@ -127,7 +127,7 @@ public class Prisionero extends Agent {
                     
                     MessageTemplate plantilla2 = ContractNetResponder.createMessageTemplate(FIPANames.InteractionProtocol.FIPA_PROPOSE);
                     mensajesPendientes.add("illo que me han aceptado la suscripcion");
-                    //addBehaviour(new ProposicionPartida(this.myAgent, plantilla2));
+                    addBehaviour(new ProposicionPartida(this.myAgent, plantilla2));
                 } else {
                     System.out.println("Recibido mensaje " + agree.getSender().getName() + " cuyo contenido no es el esperado.");
                 }

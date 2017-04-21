@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package GUI;
+package gui;
 
 import jade.core.Agent;
 import util.MensajeConsola;
@@ -12,18 +12,19 @@ import util.MensajeConsola;
  *
  * @author pedroj
  */
-public class ConsolaJFrame extends javax.swing.JFrame {
-    private final String nombreAgente;
+public class Consola extends javax.swing.JFrame {
+    private String nombreAgente;
 
     /**
      * Creates new form Consola
-     * @param nombreAgente
+     * @param myAgent
      */
-    public ConsolaJFrame(String nombreAgente) {
-        super(nombreAgente);
-        
+    public Consola(String nombreAgente) {
         initComponents();
+        
         this.nombreAgente = nombreAgente;
+        
+        this.setTitle("Consola de : " + nombreAgente);
     }
 
     public String getNombreAgente() {
@@ -35,6 +36,7 @@ public class ConsolaJFrame extends javax.swing.JFrame {
             setVisible(true);
         }
         salida.append(mensaje.toString());
+        salida.append("----------------------------------------------------\n");
     }
 
     /**
