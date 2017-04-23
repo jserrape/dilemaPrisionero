@@ -40,55 +40,65 @@ import juegos.elementos.Jugador;
 import juegos.elementos.Partida;
 import juegos.elementos.PartidaAceptada;
 
-
 /**
  *
  * @author jcsp0003
  */
 public class Prisionero extends Agent {
 
-    private final Codec codec;
+    private Codec codec = new SLCodec();
     private Ontology ontologia;
     private Partida partida;
     private Jugador jugador;
 
     private AID[] agentesConsola;
     private ArrayList<String> mensajesPendientes;
-    
-    private ContentManager manager = (ContentManager) getContentManager();
 
-    public Prisionero() {
-        this.codec = new SLCodec();
-    }
+    private ContentManager manager = (ContentManager) getContentManager();
 
     @Override
     protected void setup() {
         //Inicialización de las variables del agente   
         mensajesPendientes = new ArrayList();
+
+        DFAgentDescription dfd = new DFAgentDescription();
+        ServiceDescription sd = new ServiceDescription();
+
         try {
-            ontologia = juegos.OntologiaJuegos.getInstance();
-            InformarPartida ip = new juegos.elementos.InformarPartida();
-            manager.registerLanguage(codec);
-            manager.registerOntology(ontologia);
-
-            MessageTemplate protocolo = MessageTemplate.MatchProtocol(FIPANames.InteractionProtocol.FIPA_PROPOSE);
-            MessageTemplate performativa = MessageTemplate.MatchPerformative(ACLMessage.PROPOSE);
-            MessageTemplate lenguajeContenido = MessageTemplate.MatchLanguage(codec.getName());
-            MessageTemplate ontoTemplate = MessageTemplate.MatchOntology(ontologia.getName());
-            MessageTemplate plantilla = MessageTemplate.and(MessageTemplate.and(protocolo, performativa), MessageTemplate.and(lenguajeContenido, ontoTemplate));
-
-            System.out.println("Suscribiendose a la plataforma;");
-
-            addBehaviour(new TareaBuscarConsola(this, 5000));
-            addBehaviour(new TareaEnvioConsola(this, 1000));
-            mensajesPendientes.add("-----------> ME HE CONECTADO A LA PLATAFORMA <------------");
-            mensajesPendientes.add(this.getLocalName());
-
-        } catch (OntologyException e) {
+            manager.registerLanguage(codec, FIPANames.ContentLanguage.FIPA_SL);
+            manager.registerOntology(OntologiaDilemaPrisionero.getInstance(), OntologiaDilemaPrisionero.ONTOLOGY_NAME);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
 
-        System.out.println("Se inicia la ejecución del agente: " + this.getName());
-        //Añadir las tareas principales
+        //registro ontologia
+        sd.addOntologies(OntologiaDilemaPrisionero.ONTOLOGY_NAME);
+
+        //registro paginas amarillas
+        try {
+            sd.setName(this.getLocalName());
+            sd.setType(OntologiaDilemaPrisionero.REGISTRO_PRISIONERO);
+            dfd.addServices(sd);
+            DFService.register(this, dfd);
+        } catch (FIPAException fe) {
+            fe.printStackTrace();
+        }
+        //Se crea un mensaje de tipo SUBSCRIBE y se asocia al protocolo FIPA-Subscribe.
+        ACLMessage mensaje = new ACLMessage(ACLMessage.SUBSCRIBE);
+        mensaje.setProtocol(FIPANames.InteractionProtocol.FIPA_SUBSCRIBE);
+        mensaje.setContent("Apuntame a jugar.");
+
+        //Se añade el destinatario del mensaje
+        AID id = new AID();
+        id.setLocalName(OntologiaDilemaPrisionero.REGISTRO_POLICIA);
+        mensaje.addReceiver(id);
+
+        System.out.println(OntologiaDilemaPrisionero.REGISTRO_POLICIA);
+
+        this.addBehaviour(new InformarPartida(this, mensaje));
+        addBehaviour(new TareaBuscarConsola(this, 5000));
+        addBehaviour(new TareaEnvioConsola(this, 1000));
+        mensajesPendientes.add("-----------> ME HE CONECTADO A LA PLATAFORMA <------------");
     }
 
     @Override
@@ -99,45 +109,6 @@ public class Prisionero extends Agent {
         //Despedida
         System.out.println("Finaliza la ejecución del agente: " + this.getName());
     }
-
-    //Métodos de trabajo del agente
-    class ManejadorInitiator extends AchieveREInitiator {
-
-        public ManejadorInitiator(Agent a, ACLMessage msg) {
-            super(a, msg);
-        }
-
-        protected void handleAgree(ACLMessage agree) {
-            try {
-                // Decodifica el mensaje ACL recibido mediante el lenguaje de contenido y la ontologia actuales
-                ContentElement ce = getContentManager().extractContent(agree);
-                System.out.println("Iniciando suscribe;");
-                if (ce instanceof juegos.elementos.PartidaAceptada) {
-                    // Recibido un AGREE con contenido correcto
-                    MessageTemplate protocolo = MessageTemplate.MatchProtocol(FIPANames.InteractionProtocol.FIPA_PROPOSE);
-                    MessageTemplate performativa = MessageTemplate.MatchPerformative(ACLMessage.PROPOSE);
-                    MessageTemplate lenguajeContenido = MessageTemplate.MatchLanguage(codec.getName());
-                    MessageTemplate ontoTemplate = MessageTemplate.MatchOntology(ontologia.getName());
-                    MessageTemplate plantilla = MessageTemplate.and(MessageTemplate.and(protocolo, performativa), MessageTemplate.and(lenguajeContenido, ontoTemplate));
-
-                    getContentManager().registerLanguage(codec);
-                    getContentManager().registerOntology(ontologia);
-                    System.out.println("Suscrito a la plataforma;");
-                    System.out.println("Registrados en :" + agree.getSender().getName());
-                    
-                    MessageTemplate plantilla2 = ContractNetResponder.createMessageTemplate(FIPANames.InteractionProtocol.FIPA_PROPOSE);
-                    mensajesPendientes.add("illo que me han aceptado la suscripcion");
-                    addBehaviour(new ProposicionPartida(this.myAgent, plantilla2));
-                } else {
-                    System.out.println("Recibido mensaje " + agree.getSender().getName() + " cuyo contenido no es el esperado.");
-                }
-
-            } catch (Codec.CodecException | OntologyException ce) {
-                System.out.println(ce);
-            }
-        }
-    }
-
 
     public class TareaBuscarConsola extends TickerBehaviour {
 
@@ -194,24 +165,40 @@ public class Prisionero extends Agent {
             }
         }
     }
-    
-    public class ProposicionPartida extends ProposeResponder {
 
-        public ProposicionPartida(Agent father, MessageTemplate template) {
-            super(father, template);
+    private class InformarPartida extends SubscriptionInitiator {
+
+
+        public InformarPartida(Agent agente, ACLMessage mensaje) {
+            super(agente, mensaje);
+        }
+
+        //Maneja la respuesta en caso que acepte: AGREE
+        @Override
+        protected void handleAgree(ACLMessage inform) {
+            //System.out.println(SubscriptionIni.this.getLocalName() + ": Solicitud aceptada.");
+        }
+
+        // Maneja la respuesta en caso que rechace: REFUSE
+        @Override
+        protected void handleRefuse(ACLMessage inform) {
+            //System.out.println(SubscriptionIni.this.getLocalName() + ": Solicitud rechazada.");
+        }
+
+        //Maneja la informacion enviada: INFORM
+        @Override
+        protected void handleInform(ACLMessage inform) {
+
+        }
+
+        //Maneja la respuesta en caso de fallo: FAILURE
+        @Override
+        protected void handleFailure(ACLMessage failure) {
+
         }
 
         @Override
-        public ACLMessage prepareResponse(ACLMessage propuesta) {
-
-            try {
-                Action a = (Action) manager.extractContent(propuesta);
-                ProponerPartida partidaPropuesta = (ProponerPartida) a.getAction();
-            } catch (Codec.CodecException | OntologyException ex) {
-                Logger.getLogger(Prisionero.class.getName()).log(Level.SEVERE, null, ex);
-            }
-
-            return null;
+        public void cancellationCompleted(AID agente) {
         }
     }
 
