@@ -44,10 +44,13 @@ import juegos.elementos.PartidaAceptada;
  *
  * @author jcsp0003
  */
-public class Prisionero extends Agent {
+public class AgenteLadron extends Agent {
 
     private Codec codec = new SLCodec();
+    
+    // La ontología que utilizará el agente
     private Ontology ontologia;
+    
     private Partida partida;
     private Jugador jugador;
 
@@ -64,9 +67,15 @@ public class Prisionero extends Agent {
         DFAgentDescription dfd = new DFAgentDescription();
         ServiceDescription sd = new ServiceDescription();
 
+        // Regisro de la Ontología
         try {
-            manager.registerLanguage(codec, FIPANames.ContentLanguage.FIPA_SL);
-            manager.registerOntology(OntologiaDilemaPrisionero.getInstance(), OntologiaDilemaPrisionero.ONTOLOGY_NAME);
+            ontologia = OntologiaDilemaPrisionero.getInstance();
+        } catch (BeanOntologyException ex) {
+            Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        try {
+            manager.registerLanguage(codec);
+            manager.registerOntology(ontologia);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -84,9 +93,22 @@ public class Prisionero extends Agent {
             fe.printStackTrace();
         }
         //Se crea un mensaje de tipo SUBSCRIBE y se asocia al protocolo FIPA-Subscribe.
+        Partida p = new Partida(this.getLocalName(), "Base");
+        InformarPartida inf = new InformarPartida(p);
+
         ACLMessage mensaje = new ACLMessage(ACLMessage.SUBSCRIBE);
         mensaje.setProtocol(FIPANames.InteractionProtocol.FIPA_SUBSCRIBE);
-        mensaje.setContent("Apuntame a jugar.");
+        mensaje.setSender(this.getAID());
+        mensaje.setLanguage(codec.getName());
+        mensaje.setOntology(ontologia.getName());
+        try {
+            Action action = new Action(getAID(), inf);
+            manager.fillContent(mensaje, action);
+        } catch (Codec.CodecException | OntologyException ex) {
+            Logger.getLogger(AgentePolicia.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        System.out.println(mensaje);
 
         //Se añade el destinatario del mensaje
         AID id = new AID();
@@ -95,10 +117,10 @@ public class Prisionero extends Agent {
 
         System.out.println(OntologiaDilemaPrisionero.REGISTRO_POLICIA);
 
-        this.addBehaviour(new InformarPartida(this, mensaje));
+        this.addBehaviour(new InformarPartidaSubscribe(this, mensaje));
         addBehaviour(new TareaBuscarConsola(this, 5000));
         addBehaviour(new TareaEnvioConsola(this, 1000));
-        mensajesPendientes.add("-----------> ME HE CONECTADO A LA PLATAFORMA <------------");
+        mensajesPendientes.add("ME HE CONECTADO A LA PLATAFORMA");
     }
 
     @Override
@@ -166,23 +188,22 @@ public class Prisionero extends Agent {
         }
     }
 
-    private class InformarPartida extends SubscriptionInitiator {
+    private class InformarPartidaSubscribe extends SubscriptionInitiator {
 
-
-        public InformarPartida(Agent agente, ACLMessage mensaje) {
+        public InformarPartidaSubscribe(Agent agente, ACLMessage mensaje) {
             super(agente, mensaje);
         }
 
         //Maneja la respuesta en caso que acepte: AGREE
         @Override
         protected void handleAgree(ACLMessage inform) {
-            //System.out.println(SubscriptionIni.this.getLocalName() + ": Solicitud aceptada.");
+            mensajesPendientes.add("Mi subscripcion a la plataforma ha sido aceptada");
         }
 
         // Maneja la respuesta en caso que rechace: REFUSE
         @Override
         protected void handleRefuse(ACLMessage inform) {
-            //System.out.println(SubscriptionIni.this.getLocalName() + ": Solicitud rechazada.");
+            mensajesPendientes.add("Mi subscripcion a la plataforma ha sido rechazada");
         }
 
         //Maneja la informacion enviada: INFORM
