@@ -22,6 +22,7 @@ import jade.core.behaviours.CyclicBehaviour;
 import jade.core.behaviours.TickerBehaviour;
 import jade.domain.DFService;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
+import jade.domain.FIPAAgentManagement.NotUnderstoodException;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.domain.FIPAException;
 import jade.domain.FIPANames;
@@ -35,6 +36,7 @@ import jade.proto.SubscriptionInitiator;
 import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import juegos.elementos.GanadorPartida;
 import juegos.elementos.InformarPartida;
 import juegos.elementos.Jugador;
 import juegos.elementos.Partida;
@@ -44,13 +46,13 @@ import juegos.elementos.PartidaAceptada;
  *
  * @author jcsp0003
  */
-public class AgenteLadron extends Agent {
+public class AgentePrisionero extends Agent {
 
     private Codec codec = new SLCodec();
-    
+
     // La ontología que utilizará el agente
     private Ontology ontologia;
-    
+
     private Partida partida;
     private Jugador jugador;
 
@@ -71,7 +73,7 @@ public class AgenteLadron extends Agent {
         try {
             ontologia = OntologiaDilemaPrisionero.getInstance();
         } catch (BeanOntologyException ex) {
-            Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(AgentePrisionero.class.getName()).log(Level.SEVERE, null, ex);
         }
         try {
             manager.registerLanguage(codec);
@@ -92,6 +94,9 @@ public class AgenteLadron extends Agent {
         } catch (FIPAException fe) {
             fe.printStackTrace();
         }
+
+        mensajesPendientes.add("ME HE CONECTADO A LA PLATAFORMA");
+
         //Se crea un mensaje de tipo SUBSCRIBE y se asocia al protocolo FIPA-Subscribe.
         Partida p = new Partida(this.getLocalName(), "Base");
         InformarPartida inf = new InformarPartida(p);
@@ -117,10 +122,16 @@ public class AgenteLadron extends Agent {
 
         System.out.println(OntologiaDilemaPrisionero.REGISTRO_POLICIA);
 
-        this.addBehaviour(new InformarPartidaSubscribe(this, mensaje));
+        //ME REGISTRO AL SUBSCRIBE
+        addBehaviour(new InformarPartidaSubscribe(this, mensaje));
+
+        //BUSCO LA CONSULA Y LE MANDO LOS MENSAJES
         addBehaviour(new TareaBuscarConsola(this, 5000));
         addBehaviour(new TareaEnvioConsola(this, 1000));
-        mensajesPendientes.add("ME HE CONECTADO A LA PLATAFORMA");
+
+        //LEO LAS PROPOSICIONES DE PARTIDA
+        MessageTemplate plantilla = ProposeResponder.createMessageTemplate(FIPANames.InteractionProtocol.FIPA_PROPOSE);
+        addBehaviour(new ResponderProposicionPartida(this, plantilla));
     }
 
     @Override
@@ -208,8 +219,26 @@ public class AgenteLadron extends Agent {
 
         //Maneja la informacion enviada: INFORM
         @Override
-        protected void handleInform(ACLMessage inform) {
-
+        protected void handleInform(ACLMessage ganador) {
+            mensajesPendientes.add("Me ha llegado un ganador de partida");
+            /*
+            GanadorPartida gp = null;
+            
+            try {
+                Action ac = (Action) manager.extractContent(ganador);
+                gp = (GanadorPartida) ac.getAction();
+            } catch (Codec.CodecException | OntologyException ex) {
+                Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
+            }
+            
+            if(gp != null){
+                Partida p = gp.getPartida();
+                Jugador j = gp.getJugador();
+                mensajesPendientes.add("La partida con id "+p.getIdPartida()+" la ha ganado "+j.getNombre());
+            }else{
+                mensajesPendientes.add("El ganador de la partida ha sido NULL");
+            }
+             */
         }
 
         //Maneja la respuesta en caso de fallo: FAILURE
@@ -220,6 +249,42 @@ public class AgenteLadron extends Agent {
 
         @Override
         public void cancellationCompleted(AID agente) {
+        }
+    }
+
+    private class ResponderProposicionPartida extends ProposeResponder {
+
+        public ResponderProposicionPartida(Agent agente, MessageTemplate plantilla) {
+            super(agente, plantilla);
+        }
+
+        @Override
+        protected ACLMessage prepareResponse(ACLMessage propuesta) throws NotUnderstoodException {
+            mensajesPendientes.add("Me ha llegado una proposicion de partida");
+
+            ProponerPartida pp = null;
+            Partida p = null;
+            try {
+                Action ac = (Action) manager.extractContent(propuesta);
+                pp = (ProponerPartida) ac.getAction();
+                p = pp.getPartida();
+            } catch (Codec.CodecException | OntologyException ex) {
+                Logger.getLogger(AgentePrisionero.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+            Jugador j = new Jugador(this.myAgent.getLocalName(), this.myAgent.getAID());
+            PartidaAceptada pa = new PartidaAceptada(p, j);
+
+            ACLMessage agree = propuesta.createReply();
+            agree.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
+            agree.setLanguage(codec.getName());
+            agree.setOntology(ontologia.getName());
+            try {
+                manager.fillContent(agree, pa);
+            } catch (Codec.CodecException | OntologyException ex) {
+                Logger.getLogger(AgentePrisionero.class.getName()).log(Level.SEVERE, null, ex);
+            }
+            return agree;
         }
     }
 

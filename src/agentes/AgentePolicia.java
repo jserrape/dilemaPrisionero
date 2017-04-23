@@ -100,7 +100,7 @@ public class AgentePolicia extends Agent {
         try {
             ontology = OntologiaDilemaPrisionero.getInstance();
         } catch (BeanOntologyException ex) {
-            Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(AgentePrisionero.class.getName()).log(Level.SEVERE, null, ex);
         }
         manager.registerLanguage(codec);
 	manager.registerOntology(ontology);
@@ -487,7 +487,7 @@ public class AgentePolicia extends Agent {
                     mensaje.setContent("No hay mensajes pendientes");
                     // myAgent.send(mensaje);
                     
-                    System.out.println(mensaje);
+                    //System.out.println(mensaje);
                 }
             }
         }
