@@ -16,11 +16,13 @@ import juegos.elementos.Jugador;
 public class ResultadoJugador implements Comparable<ResultadoJugador> {
     
     private Jugador jugador;
-    private double tiempoCondena;
+    private int tiempoCondena;
+    private boolean activo;
 
-    public ResultadoJugador(Jugador jugador, double tiempoCondena) {
+    public ResultadoJugador(Jugador jugador, int tiempoCondena) {
         this.jugador = jugador;
         this.tiempoCondena = tiempoCondena;
+        this.activo = false;
     }
 
     public Jugador getJugador() {
@@ -31,12 +33,20 @@ public class ResultadoJugador implements Comparable<ResultadoJugador> {
         this.jugador = jugador;
     }
 
-    public double getTiempoCondena() {
+    public int getTiempoCondena() {
         return tiempoCondena;
     }
 
-    public void setTiempoCondena(double tiempoCondena) {
+    public void setTiempoCondena(int tiempoCondena) {
         this.tiempoCondena = tiempoCondena;
+    }
+
+    public void setActivo(boolean activo) {
+        this.activo = activo;
+    }
+
+    public boolean isActivo() {
+        return activo;
     }
 
     @Override

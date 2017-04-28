@@ -5,7 +5,8 @@
  */
 package agentes;
 
-import GUI.ConsolaJFrame;
+import gui.Consola;
+import dilemaPrisionero.OntologiaDilemaPrisionero;
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.core.behaviours.OneShotBehaviour;
@@ -24,7 +25,7 @@ import util.MensajeConsola;
  * @author pedroj
  */
 public class AgenteConsola extends Agent {
-    private ArrayList<ConsolaJFrame> myGui;
+    private ArrayList<Consola> myGui;
     private ArrayList<MensajeConsola> mensajesPendientes;
     
     /**
@@ -42,8 +43,8 @@ public class AgenteConsola extends Agent {
         DFAgentDescription dfd = new DFAgentDescription();
         dfd.setName(getAID());
 	ServiceDescription sd = new ServiceDescription();
-	sd.setType("jcsp0003");
-	sd.setName("jcsp0003");
+	sd.setType("GUI");
+	sd.setName(OntologiaDilemaPrisionero.REGISTRO_CONSOLA);
 	dfd.addServices(sd);
 	try {
             DFService.register(this, dfd);
@@ -53,7 +54,7 @@ public class AgenteConsola extends Agent {
 	}
         
         // Se añaden las tareas principales
-       addBehaviour(new TareaRecepcionMensajes());
+       addBehaviour(new RecepcionMensajes());
     }
     
     /**
@@ -76,11 +77,11 @@ public class AgenteConsola extends Agent {
     }
 
     //Métodos de utilidad para el agente consola
-    private ConsolaJFrame buscarConsola(String nombreAgente) {
+    private Consola buscarConsola(String nombreAgente) {
         // Obtenemos la consola donde se presentarán los mensajes
-        Iterator<ConsolaJFrame> it = myGui.iterator();
+        Iterator<Consola> it = myGui.iterator();
         while (it.hasNext()) {
-            ConsolaJFrame gui = it.next();
+            Consola gui = it.next();
             if (gui.getNombreAgente().compareTo(nombreAgente) == 0)
                 return gui;
         }
@@ -90,15 +91,15 @@ public class AgenteConsola extends Agent {
     
     private void cerrarConsolas() {
         //Se eliminan las consolas que están abiertas
-        Iterator<ConsolaJFrame> it = myGui.iterator();
+        Iterator<Consola> it = myGui.iterator();
         while (it.hasNext()) {
-            ConsolaJFrame gui = it.next();
+            Consola gui = it.next();
             gui.dispose();
         }
     }
     
     //Tareas del agente consola
-    public class TareaRecepcionMensajes extends CyclicBehaviour {
+    public class RecepcionMensajes extends CyclicBehaviour {
 
         @Override
         public void action() {
@@ -110,7 +111,7 @@ public class AgenteConsola extends Agent {
                 MensajeConsola mensajeConsola = new MensajeConsola(mensaje.getSender().getName(),
                                     mensaje.getContent());
                 mensajesPendientes.add(mensajeConsola);
-                addBehaviour(new TareaPresentarMensaje());
+                addBehaviour(new PresentarMensaje());
             } 
             else
                 block();
@@ -119,7 +120,7 @@ public class AgenteConsola extends Agent {
     
     }
     
-    public class TareaPresentarMensaje extends OneShotBehaviour {
+    public class PresentarMensaje extends OneShotBehaviour {
 
         @Override
         public void action() {
@@ -127,9 +128,9 @@ public class AgenteConsola extends Agent {
             MensajeConsola mensajeConsola = mensajesPendientes.remove(0);
             
             //Se busca la ventana de consola o se crea una nueva
-            ConsolaJFrame gui = buscarConsola(mensajeConsola.getNombreAgente());
+            Consola gui = buscarConsola(mensajeConsola.getNombreAgente());
             if (gui == null) {
-                gui = new ConsolaJFrame(mensajeConsola.getNombreAgente());
+                gui = new Consola(mensajeConsola.getNombreAgente());
                 myGui.add(gui);
             } 
             
@@ -137,4 +138,6 @@ public class AgenteConsola extends Agent {
         }
         
     }
+
+
 }

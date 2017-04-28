@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-//-container -host 192.168.38.100 -agents MartinezLledo:agentes.AgentePrisionero;MartinezLledoC:agentes.AgenteConsola
+//-container -host 192.168.38.100 -agents MartinezLledo:agentes.AgenteLadron;MartinezLledoC:agentes.AgenteConsola
 //Para hacer: cuando llega un mensaje hay que meter el nombre (AID o lo que sea) en una lista y comprobar si estaba antes,
 //Si envía True (no estaba) hacer la subscripción, y si estaba (False) no hacer nada nuevo
 //Se envía un Inform(DetalleInforme) con Partida y Detalle(Concepto) Que realizará Guardar(Jugador) o un Error(String)
@@ -43,7 +43,7 @@ import juegos.elementos.PartidaAceptada;
  *
  * @author jcsp0003
  */
-public class AgentePrisionero extends Agent {
+public class AgenteLadron extends Agent {
 
     private Codec codec = new SLCodec();
 
@@ -70,7 +70,7 @@ public class AgentePrisionero extends Agent {
         try {
             ontologia = OntologiaDilemaPrisionero.getInstance();
         } catch (BeanOntologyException ex) {
-            Logger.getLogger(AgentePrisionero.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
         }
         try {
             manager.registerLanguage(codec);
@@ -96,7 +96,7 @@ public class AgentePrisionero extends Agent {
 
         //Se crea un mensaje de tipo SUBSCRIBE y se asocia al protocolo FIPA-Subscribe.
         Partida p = new Partida(this.getLocalName(), "Base");
-        InformarPartida inf = new InformarPartida(p);
+        // AQUI HAY QUE ENVIAR EL JUGADOR InformarPartida inf = new InformarPartida(p);
 
         ACLMessage mensaje = new ACLMessage(ACLMessage.SUBSCRIBE);
         mensaje.setProtocol(FIPANames.InteractionProtocol.FIPA_SUBSCRIBE);
@@ -266,7 +266,7 @@ public class AgentePrisionero extends Agent {
                 pp = (ProponerPartida) ac.getAction();
                 p = pp.getPartida();
             } catch (Codec.CodecException | OntologyException ex) {
-                Logger.getLogger(AgentePrisionero.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
             }
 
             Jugador j = new Jugador(this.myAgent.getLocalName(), this.myAgent.getAID());
@@ -279,7 +279,7 @@ public class AgentePrisionero extends Agent {
             try {
                 manager.fillContent(agree, pa);
             } catch (Codec.CodecException | OntologyException ex) {
-                Logger.getLogger(AgentePrisionero.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
             }
             return agree;
         }
