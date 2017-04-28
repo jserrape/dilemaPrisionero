@@ -4,6 +4,9 @@
  * and open the template in the editor.
  */
 //-container -host 192.168.38.100 -agents MartinezLledo:agentes.AgentePrisionero;MartinezLledoC:agentes.AgenteConsola
+//Para hacer: cuando llega un mensaje hay que meter el nombre (AID o lo que sea) en una lista y comprobar si estaba antes,
+//Si envía True (no estaba) hacer la subscripción, y si estaba (False) no hacer nada nuevo
+//Se envía un Inform(DetalleInforme) con Partida y Detalle(Concepto) Que realizará Guardar(Jugador) o un Error(String)
 package agentes;
 
 import dilemaPrisionero.OntologiaDilemaPrisionero;
