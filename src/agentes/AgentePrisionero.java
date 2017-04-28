@@ -137,7 +137,11 @@ public class AgentePrisionero extends Agent {
     @Override
     protected void takeDown() {
         //Desregristo del agente de las Páginas Amarillas
-
+        try {
+            DFService.deregister(this);
+        } catch (FIPAException fe) {
+            fe.printStackTrace();
+        }
         //Liberación de recursos, incluido el GUI
         //Despedida
         System.out.println("Finaliza la ejecución del agente: " + this.getName());
