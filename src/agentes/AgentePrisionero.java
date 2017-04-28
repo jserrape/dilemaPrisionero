@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-//-container -host 192.168.38.100 -agents serrano:agentes.AgenteConsola
+//-container -host 192.168.38.100 -agents MartinezLledo:agentes.AgentePrisionero;MartinezLledoC:agentes.AgenteConsola
 package agentes;
 
 import dilemaPrisionero.OntologiaDilemaPrisionero;
@@ -113,17 +113,13 @@ public class AgentePrisionero extends Agent {
             Logger.getLogger(AgentePolicia.class.getName()).log(Level.SEVERE, null, ex);
         }
 
-        System.out.println(mensaje);
-
         //Se añade el destinatario del mensaje
         AID id = new AID();
         id.setLocalName(OntologiaDilemaPrisionero.REGISTRO_POLICIA);
         mensaje.addReceiver(id);
 
-        System.out.println(OntologiaDilemaPrisionero.REGISTRO_POLICIA);
-
         //ME REGISTRO AL SUBSCRIBE
-        addBehaviour(new InformarPartidaSubscribe(this, mensaje));
+        //addBehaviour(new InformarPartidaSubscribe(this, mensaje));
 
         //BUSCO LA CONSULA Y LE MANDO LOS MENSAJES
         addBehaviour(new TareaBuscarConsola(this, 5000));
@@ -159,7 +155,7 @@ public class AgentePrisionero extends Agent {
             //Busca agentes consola
             DFAgentDescription template = new DFAgentDescription();
             ServiceDescription sd = new ServiceDescription();
-            sd.setName("Consola");
+            sd.setName("jcsp0003");
             template.addServices(sd);
             try {
                 DFAgentDescription[] result = DFService.search(myAgent, template);
