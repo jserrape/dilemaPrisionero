@@ -10,6 +10,9 @@
 package agentes;
 
 import dilemaPrisionero.OntologiaDilemaPrisionero;
+import dilemaPrisionero.elementos.EntregarJugada;
+import dilemaPrisionero.elementos.Jugada;
+import dilemaPrisionero.elementos.JugadaEntregada;
 import dilemaPrisionero.elementos.ProponerPartida;
 import jade.content.ContentManager;
 import jade.content.lang.Codec;
@@ -23,12 +26,15 @@ import jade.core.Agent;
 import jade.core.behaviours.TickerBehaviour;
 import jade.domain.DFService;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
+import jade.domain.FIPAAgentManagement.FailureException;
 import jade.domain.FIPAAgentManagement.NotUnderstoodException;
+import jade.domain.FIPAAgentManagement.RefuseException;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.domain.FIPAException;
 import jade.domain.FIPANames;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
+import jade.proto.ContractNetResponder;
 import jade.proto.ProposeResponder;
 import jade.proto.SubscriptionInitiator;
 import java.util.ArrayList;
@@ -94,11 +100,9 @@ public class AgenteLadron extends Agent {
 
         mensajesPendientes.add("ME HE CONECTADO A LA PLATAFORMA");
 
-        //Se crea un mensaje de tipo SUBSCRIBE y se asocia al protocolo FIPA-Subscribe.
-        Partida p = new Partida(this.getLocalName(), "Base");
-        // AQUI HAY QUE ENVIAR EL JUGADOR InformarPartida inf = new InformarPartida(p);
+        jugador = new Jugador(this.getName(), this.getAID());
 
-        /*
+        InformarPartida inf = new InformarPartida(jugador);
         ACLMessage mensaje = new ACLMessage(ACLMessage.SUBSCRIBE);
         mensaje.setProtocol(FIPANames.InteractionProtocol.FIPA_SUBSCRIBE);
         mensaje.setSender(this.getAID());
@@ -115,9 +119,9 @@ public class AgenteLadron extends Agent {
         AID id = new AID();
         id.setLocalName(OntologiaDilemaPrisionero.REGISTRO_POLICIA);
         mensaje.addReceiver(id);
-         */
+
         //ME REGISTRO AL SUBSCRIBE
-        //addBehaviour(new InformarPartidaSubscribe(this, mensaje));
+        addBehaviour(new InformarPartidaSubscribe(this, mensaje));
         //BUSCO LA CONSULA Y LE MANDO LOS MENSAJES
         addBehaviour(new TareaBuscarConsola(this, 5000));
         addBehaviour(new TareaEnvioConsola(this, 1000));
@@ -125,6 +129,10 @@ public class AgenteLadron extends Agent {
         //LEO LAS PROPOSICIONES DE PARTIDA
         MessageTemplate plantilla = ProposeResponder.createMessageTemplate(FIPANames.InteractionProtocol.FIPA_PROPOSE);
         addBehaviour(new ResponderProposicionPartida(this, plantilla));
+
+        //Leo las rondas
+        MessageTemplate template = ContractNetResponder.createMessageTemplate(FIPANames.InteractionProtocol.FIPA_CONTRACT_NET);
+        addBehaviour(new TareaJugarPartida(this, template));
     }
 
     @Override
@@ -218,24 +226,6 @@ public class AgenteLadron extends Agent {
         @Override
         protected void handleInform(ACLMessage ganador) {
             mensajesPendientes.add("Me ha llegado un ganador de partida");
-            /*
-            GanadorPartida gp = null;
-            
-            try {
-                Action ac = (Action) manager.extractContent(ganador);
-                gp = (GanadorPartida) ac.getAction();
-            } catch (Codec.CodecException | OntologyException ex) {
-                Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
-            }
-            
-            if(gp != null){
-                Partida p = gp.getPartida();
-                Jugador j = gp.getJugador();
-                mensajesPendientes.add("La partida con id "+p.getIdPartida()+" la ha ganado "+j.getNombre());
-            }else{
-                mensajesPendientes.add("El ganador de la partida ha sido NULL");
-            }
-             */
         }
 
         //Maneja la respuesta en caso de fallo: FAILURE
@@ -282,6 +272,67 @@ public class AgenteLadron extends Agent {
                 Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
             }
             return agree;
+        }
+    }
+
+    private class TareaJugarPartida extends ContractNetResponder {
+
+        public TareaJugarPartida(Agent agente, MessageTemplate plantilla) {
+            super(agente, plantilla);
+        }
+
+        @Override
+        protected ACLMessage prepareResponse(ACLMessage cfp) throws NotUnderstoodException, RefuseException {
+            Action ac;
+            EntregarJugada entJug = null;
+
+            try {
+                ac = (Action) manager.extractContent(cfp);
+                entJug = (EntregarJugada) ac.getAction();
+            } catch (Codec.CodecException | OntologyException ex) {
+                Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
+            }
+            mensajesPendientes.add("Me ha llegado una peticion de ronda para la partida con id=" + entJug.getPartida().getIdPartida());
+            //De lo anterior leo quien es mi oponente
+            int numero = ((int) (Math.random() * 1000))%2;
+            Partida part = entJug.getPartida();
+            Jugada jugada;
+            mensajesPendientes.add(numero+"");
+            if (numero == 1) {
+                jugada = new Jugada(OntologiaDilemaPrisionero.CALLAR);
+                mensajesPendientes.add(OntologiaDilemaPrisionero.CALLAR);
+            } else {
+                jugada = new Jugada(OntologiaDilemaPrisionero.HABLAR);
+                mensajesPendientes.add(OntologiaDilemaPrisionero.HABLAR);
+            }
+            JugadaEntregada jugEnt = new JugadaEntregada(part, jugador, jugada);
+
+            ACLMessage respuesta = cfp.createReply();
+            respuesta.setPerformative(ACLMessage.PROPOSE);
+            respuesta.setSender(myAgent.getAID());
+            respuesta.setLanguage(codec.getName());
+            respuesta.setOntology(ontologia.getName());
+
+            try {
+                manager.fillContent(respuesta, jugEnt);
+            } catch (Codec.CodecException | OntologyException ex) {
+                Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+            return respuesta;
+        }
+
+        @Override
+        protected ACLMessage prepareResultNotification(ACLMessage cfp, ACLMessage propose, ACLMessage accept) throws FailureException {
+            mensajesPendientes.add("Me ha llegado un ResultadoJugada");
+            ACLMessage inform = accept.createReply();
+            inform.setPerformative(ACLMessage.INFORM);
+            return inform;
+        }
+
+        @Override
+        protected void handleRejectProposal(ACLMessage cfp, ACLMessage propose, ACLMessage reject) {
+            mensajesPendientes.add("Me ha llegado algo al handleRejectProposal");
         }
     }
 

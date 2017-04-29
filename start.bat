@@ -1,1 +1,0 @@
-java -cp lib\jade.jar;build\classes jade.Boot -gui -agents Consola:agentes.AgenteConsola;Prisionero1:agentes.Prisionero;
