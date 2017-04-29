@@ -14,6 +14,7 @@ import dilemaPrisionero.elementos.EntregarJugada;
 import dilemaPrisionero.elementos.Jugada;
 import dilemaPrisionero.elementos.JugadaEntregada;
 import dilemaPrisionero.elementos.ProponerPartida;
+import dilemaPrisionero.elementos.ResultadoJugada;
 import jade.content.ContentManager;
 import jade.content.lang.Codec;
 import jade.content.lang.sl.SLCodec;
@@ -64,6 +65,8 @@ public class AgenteLadron extends Agent {
 
     private ContentManager manager = (ContentManager) getContentManager();
 
+    private int condenaAcumulada = 0;
+
     @Override
     protected void setup() {
         //Inicialización de las variables del agente   
@@ -102,26 +105,6 @@ public class AgenteLadron extends Agent {
 
         jugador = new Jugador(this.getName(), this.getAID());
 
-        InformarPartida inf = new InformarPartida(jugador);
-        ACLMessage mensaje = new ACLMessage(ACLMessage.SUBSCRIBE);
-        mensaje.setProtocol(FIPANames.InteractionProtocol.FIPA_SUBSCRIBE);
-        mensaje.setSender(this.getAID());
-        mensaje.setLanguage(codec.getName());
-        mensaje.setOntology(ontologia.getName());
-        try {
-            Action action = new Action(getAID(), inf);
-            manager.fillContent(mensaje, action);
-        } catch (Codec.CodecException | OntologyException ex) {
-            Logger.getLogger(AgentePolicia.class.getName()).log(Level.SEVERE, null, ex);
-        }
-
-        //Se añade el destinatario del mensaje
-        AID id = new AID();
-        id.setLocalName(OntologiaDilemaPrisionero.REGISTRO_POLICIA);
-        mensaje.addReceiver(id);
-
-        //ME REGISTRO AL SUBSCRIBE
-        addBehaviour(new InformarPartidaSubscribe(this, mensaje));
         //BUSCO LA CONSULA Y LE MANDO LOS MENSAJES
         addBehaviour(new TareaBuscarConsola(this, 5000));
         addBehaviour(new TareaEnvioConsola(this, 1000));
@@ -271,6 +254,30 @@ public class AgenteLadron extends Agent {
             } catch (Codec.CodecException | OntologyException ex) {
                 Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
             }
+
+            ///////////////////////////////////////////////////
+            InformarPartida inf = new InformarPartida(jugador);
+            ACLMessage mensaje = new ACLMessage(ACLMessage.SUBSCRIBE);
+            mensaje.setProtocol(FIPANames.InteractionProtocol.FIPA_SUBSCRIBE);
+            mensaje.setSender(this.myAgent.getAID());
+            mensaje.setLanguage(codec.getName());
+            mensaje.setOntology(ontologia.getName());
+            try {
+                Action action = new Action(getAID(), inf);
+                manager.fillContent(mensaje, action);
+            } catch (Codec.CodecException | OntologyException ex) {
+                Logger.getLogger(AgentePolicia.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+            //Se añade el destinatario del mensaje
+            AID id = new AID();
+            id.setLocalName(OntologiaDilemaPrisionero.REGISTRO_POLICIA);
+            mensaje.addReceiver(id);
+
+            //ME REGISTRO AL SUBSCRIBE
+            addBehaviour(new InformarPartidaSubscribe(this.myAgent, mensaje));
+
+            ////////////////////////////////////////////////
             return agree;
         }
     }
@@ -294,16 +301,14 @@ public class AgenteLadron extends Agent {
             }
             mensajesPendientes.add("Me ha llegado una peticion de ronda para la partida con id=" + entJug.getPartida().getIdPartida());
             //De lo anterior leo quien es mi oponente
-            int numero = ((int) (Math.random() * 1000))%2;
+            int numero = ((int) (Math.random() * 1000)) % 2;
             Partida part = entJug.getPartida();
             Jugada jugada;
-            mensajesPendientes.add(numero+"");
+            mensajesPendientes.add(numero + "");
             if (numero == 1) {
                 jugada = new Jugada(OntologiaDilemaPrisionero.CALLAR);
-                mensajesPendientes.add(OntologiaDilemaPrisionero.CALLAR);
             } else {
                 jugada = new Jugada(OntologiaDilemaPrisionero.HABLAR);
-                mensajesPendientes.add(OntologiaDilemaPrisionero.HABLAR);
             }
             JugadaEntregada jugEnt = new JugadaEntregada(part, jugador, jugada);
 
@@ -324,7 +329,17 @@ public class AgenteLadron extends Agent {
 
         @Override
         protected ACLMessage prepareResultNotification(ACLMessage cfp, ACLMessage propose, ACLMessage accept) throws FailureException {
-            mensajesPendientes.add("Me ha llegado un ResultadoJugada");
+            ResultadoJugada resultado = null;
+
+            try {
+                resultado = (ResultadoJugada) manager.extractContent(accept);
+            } catch (Codec.CodecException | OntologyException ex) {
+                Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+            condenaAcumulada += resultado.getCondenaRecibida();
+            mensajesPendientes.add("Me ha llegado un ResultadoJugada, me han caido: " + resultado.getCondenaRecibida() + " años, llevo " + condenaAcumulada);
+
             ACLMessage inform = accept.createReply();
             inform.setPerformative(ACLMessage.INFORM);
             return inform;
