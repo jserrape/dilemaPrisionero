@@ -8,6 +8,12 @@ package gui;
 import agentes.AgentePolicia;
 import dilemaPrisionero.elementos.Condenas;
 import dilemaPrisionero.elementos.DilemaPrisionero;
+import static util.Constantes.CASTIGO;
+import static util.Constantes.NUM_RONDAS;
+import static util.Constantes.PRIMO;
+import static util.Constantes.PROB_FINAL;
+import static util.Constantes.RECOMPENSA;
+import static util.Constantes.TENTACION;
 
 /**
  *
@@ -24,12 +30,12 @@ public class DilemaPrisioneroJFrame extends javax.swing.JFrame {
         myAgent = agent;
         this.setTitle(myAgent.getName());
         
-        tentacion.setText(Integer.toString(AgentePolicia.TENTACION));
-        recompensa.setText(Integer.toString(AgentePolicia.RECOMPENSA));
-        castigo.setText(Integer.toString(AgentePolicia.CASTIGO));
-        primo.setText(Integer.toString(AgentePolicia.PRIMO));
-        rondas.setText(Integer.toString(AgentePolicia.NUM_RONDAS));
-        probFinal.setText(Integer.toString(AgentePolicia.PROB_FINAL));
+        tentacion.setText(Integer.toString(TENTACION));
+        recompensa.setText(Integer.toString(RECOMPENSA));
+        castigo.setText(Integer.toString(CASTIGO));
+        primo.setText(Integer.toString(PRIMO));
+        rondas.setText(Integer.toString(NUM_RONDAS));
+        probFinal.setText(Integer.toString(PROB_FINAL));
         numJugadores.setText("0");
     }
     

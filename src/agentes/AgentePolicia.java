@@ -13,6 +13,7 @@ import dilemaPrisionero.elementos.Jugada;
 import dilemaPrisionero.elementos.JugadaEntregada;
 import dilemaPrisionero.elementos.ResultadoJugada;
 import gui.DilemaPrisioneroJFrame;
+import gui.ErrorJFrame;
 import juegos.elementos.Partida;
 import juegos.elementos.Jugador;
 import jade.content.ContentManager;
@@ -40,7 +41,6 @@ import jade.proto.ContractNetInitiator;
 import jade.proto.ProposeInitiator;
 import jade.proto.SubscriptionResponder;
 import jade.proto.SubscriptionResponder.Subscription;
-import jade.proto.SubscriptionResponder.SubscriptionManager;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -53,9 +53,22 @@ import java.util.Set;
 import java.util.Vector;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import juegos.elementos.DetalleInforme;
 import juegos.elementos.GanadorPartida;
 import juegos.elementos.InformarPartida;
 import juegos.elementos.PartidaAceptada;
+import static util.Constantes.BUSCAR_AGENTES;
+import static util.Constantes.CASTIGO;
+import static util.Constantes.CONDENA_INICIAL;
+import static util.Constantes.MINIMO_LADRONES;
+import static util.Constantes.PRIMERA_RONDA;
+import static util.Constantes.PRIMERO;
+import static util.Constantes.PRIMO;
+import static util.Constantes.RECOMPENSA;
+import static util.Constantes.RETARDO_PRESENTACION;
+import static util.Constantes.SEGUNDO;
+import static util.Constantes.TENTACION;
+import static util.Constantes.TIME_OUT;
 import util.ElmPresentacion;
 import util.RegistroPartida;
 import util.ResultadoJugador;
@@ -65,57 +78,43 @@ import util.ResultadoJugador;
  * @author pedroj
  */
 public class AgentePolicia extends Agent {
-
+    
     private final ContentManager manager = (ContentManager) getContentManager();
-
-    // El lenguaje utilizado por el agente para la comunicación es SL
+	
+    // El lenguaje utilizado por el agente para la comunicación es SL 
     private final Codec codec = new SLCodec();
 
     // La ontología que utilizará el agente
     private Ontology ontology;
-
+    
     // Para visualización de las acciones del agente
     private ArrayList<String> mensajesPendientes;
     private AID[] agentesConsola;
     private List<ElmPresentacion> presentacionPartidas;
-
+    
     // Variables
     private DilemaPrisioneroJFrame myGUI;
+    private ErrorJFrame errorGUI;
     private AID[] agentesLadron = null;
     private Map<String, RegistroPartida> infoPartidas;
     private int partidasIniciadas = 0;
     private String idPartida;
-    private Set<Subscription> suscripcionesJugadores;
+    private TareaInformarPartida eventosPolicia;
     private Set<String> partidasActivas;
-
-    // Valores por defecto
-    private final long TIME_OUT = 20000; // 2seg
-    private final long RETARDO_PRESENTACION = 2000;
-    private final long BUSCAR_AGENTES = 5000; // 0.5seg
-    private final int MINIMO_LADRONES = 4; // mínimo número de jugadores
-    public static final int NUM_RONDAS = 10;
-    public static final int PROB_FINAL = 25; // 25% una vez alcanzadas las rondas
-    public static final int TENTACION = 1;
-    public static final int RECOMPENSA = 2; // por colaboración
-    public static final int CASTIGO = 5; // mutua traición
-    public static final int PRIMO = 10; // pena del pardillo
-    public static final int PRIMERA_RONDA = 0; // identifica la primera ronda de la partida
-    public static final int CONDENA_INICIAL = 0;
-    public static final int UNO = 0; // índice para el primer jugador
-    public static final int DOS = 1; // índice para el segundo jugador
 
     @Override
     protected void setup() {
-
+        
         //Incialización de variables
         myGUI = new DilemaPrisioneroJFrame(this);
         myGUI.setVisible(true);
+        //errorGUI = new ErrorJFrame(this);
+        //errorGUI.setVisible(true);
         mensajesPendientes = new ArrayList();
         presentacionPartidas = new ArrayList();
         infoPartidas = new HashMap();
-        suscripcionesJugadores = new HashSet();
         partidasActivas = new HashSet();
-
+        
         // Regisro de la Ontología
         try {
             ontology = OntologiaDilemaPrisionero.getInstance();
@@ -123,41 +122,44 @@ public class AgentePolicia extends Agent {
             Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
         }
         manager.registerLanguage(codec);
-        manager.registerOntology(ontology);
-
+	manager.registerOntology(ontology);
+        
         //Añadir tareas principales
         addBehaviour(new TareaVisualizacionJuego(this, RETARDO_PRESENTACION));
         addBehaviour(new TareaBuscarAgentes(this, BUSCAR_AGENTES));
-        addBehaviour(new TareaEnvioConsola(this, RETARDO_PRESENTACION));
-
+        addBehaviour(new TareaEnvioConsola(this,RETARDO_PRESENTACION));
+        
         // Anadimos la tarea para las suscripciones
         // Primero creamos el gestor de las suscripciones
-        SubscriptionManager gestorSuscripciones = new SubscriptionManager() {
-            @Override
-            public boolean register(Subscription s) throws RefuseException, NotUnderstoodException {
-                suscripcionesJugadores.add(s);
-                return true;
-            }
-
-            @Override
-            public boolean deregister(Subscription s) throws FailureException {
-                suscripcionesJugadores.remove(s);
-                return true;
-            }
-
-        };
+//        SubscriptionManager gestorSuscripciones = new SubscriptionManager() {
+//            @Override
+//            public boolean register(Subscription s) throws RefuseException, NotUnderstoodException {
+//                suscripcionesJugadores.add(s);
+//                return true;
+//            }
+//
+//            @Override
+//            public boolean deregister(Subscription s) throws FailureException {
+//                suscripcionesJugadores.remove(s);
+//                return true;
+//            }
+//        
+//        };
         // Plantilla del mensaje de suscripción
         MessageTemplate plantilla = MessageTemplate.MatchProtocol(FIPANames.InteractionProtocol.FIPA_SUBSCRIBE);
-        addBehaviour(new TareaInformarPartida(this, plantilla, gestorSuscripciones));
-
+        eventosPolicia = new TareaInformarPartida(this, plantilla);
+        addBehaviour(eventosPolicia);
+        
         mensajesPendientes.add("Se ha completado la inicialización del Policía");
-
+//        errorGUI.presentarError("ERRORES detectados por el agente: " +
+//                this.getLocalName() + ", durante su ejecución");
     }
 
     @Override
     protected void takeDown() {
         //Se liberan los recuros y se despide
         myGUI.dispose();
+        //errorGUI.dispose();
         Iterator it = infoPartidas.values().iterator();
         while (it.hasNext()) {
             RegistroPartida registroPartida = (RegistroPartida) it.next();
@@ -165,72 +167,68 @@ public class AgentePolicia extends Agent {
         }
         System.out.println("Finaliza la ejecución de " + this.getName());
     }
-
+    
     /**
-     * Resolvemos el problema que se presenta cuando la lista de jugadores para
-     * una partida no es par
-     *
-     * @param partida
+     * Resolvemos el problema que se presenta cuando la lista de jugadores
+     * para una partida no es par
+     * @param partida 
      */
-    private void resolverImpar(RegistroPartida partida) {
+    private void resolverImpar( RegistroPartida partida ) {
         List<ResultadoJugador> jugadoresPartida;
-
+        
         // Comprobamos que los jugadores de la partida sean pares
         // o conseguimos que sean pares
         jugadoresPartida = partida.getClasificacion();
-        if (jugadoresPartida.size() % 2 != 0) {
+        if ( jugadoresPartida.size() % 2 != 0) {
             // jugadores impares, eliminamos al primero
-            jugadoresPartida.remove(UNO);
+            jugadoresPartida.remove(PRIMERO);
         }
     }
-
+    
     /**
      * Presentamos la presentacionPartida de la partida en su GUI asociado
-     *
-     * @param idPartida
+     * @param idPartida 
      */
-    private void presentacionPartida(String idPartida, boolean finPartida) {
+    private void presentacionPartida ( String idPartida, boolean finPartida ) {
         ResultadoJugador resultadoJugador;
         List<String> agentesJugador = new ArrayList();
         List<String> nombresJugador = new ArrayList();
         List<String> condenas = new ArrayList();
-
+        
         RegistroPartida partida = infoPartidas.get(idPartida);
         Collections.sort(partida.getClasificacion());
         Iterator it = partida.getClasificacion().iterator();
-        while (it.hasNext()) {
+        while ( it.hasNext() ) {
             resultadoJugador = (ResultadoJugador) it.next();
             agentesJugador.add(resultadoJugador.getJugador().getAgenteJugador().getLocalName());
             nombresJugador.add(resultadoJugador.getJugador().getNombre());
             condenas.add(Integer.toString(resultadoJugador.getTiempoCondena()));
-        }
-
+        } 
+        
         ElmPresentacion resultado = new ElmPresentacion(idPartida, partida.getRonda(),
-                agentesJugador, nombresJugador, condenas);
+                    agentesJugador,nombresJugador, condenas);
         resultado.setFinPartida(finPartida);
         presentacionPartidas.add(resultado);
-    }
-
+    }  
+    
     /**
-     * Se añade una nueva partida con los parámetros regogicos del GUI del
-     * agente policía
-     *
-     * @param configuracion
+     * Se añade una nueva partida con los parámetros regogicos del GUI
+     * del agente policía
+     * @param configuracion 
      */
-    public void nuevaPartida(DilemaPrisionero configuracion) {
+    public void nuevaPartida( DilemaPrisionero configuracion) {
         this.addBehaviour(new TareaNuevaPartida(configuracion));
     }
-
+    
     /**
      * Añadirmos una tarea JugarPartida para recoger el resultado de una pareja
      * de jugadores en la partida
-     *
      * @param partida
      * @param jugador1
-     * @param jugador2
+     * @param jugador2 
      */
-    private void iniciaJugarPartida(Partida partida, List jugadores) {
-
+    private void iniciaJugarPartida ( Partida partida, List jugadores ) {
+        
         //Creamos el mensaje para lanzar el protocolo Contrac_Net
         ACLMessage msg = new ACLMessage(ACLMessage.CFP);
         msg.setProtocol(FIPANames.InteractionProtocol.FIPA_CONTRACT_NET);
@@ -238,103 +236,196 @@ public class AgentePolicia extends Agent {
         msg.setLanguage(codec.getName());
         msg.setOntology(ontology.getName());
         Iterator it = jugadores.iterator();
-        while (it.hasNext()) {
+        while ( it.hasNext() ) {
             Jugador jugador = (Jugador) it.next();
             msg.addReceiver(jugador.getAgenteJugador());
         }
         msg.setReplyByDate(new Date(System.currentTimeMillis() + TIME_OUT));
-
+        
         // Contenido del mensaje
-        jade.util.leap.ArrayList listaJugadores = new jade.util.leap.ArrayList((ArrayList) jugadores);
-        EntregarJugada pedirJugada = new EntregarJugada(partida, listaJugadores);
-        Action ac = new Action(this.getAID(), pedirJugada);
-
+        jade.util.leap.ArrayList listaJugadores = new jade.util.leap.ArrayList( (ArrayList) jugadores);
+        EntregarJugada pedirJugada = new EntregarJugada ( partida, listaJugadores);
+        Action ac = new Action (this.getAID(), pedirJugada);
+        
         try {
             manager.fillContent(msg, ac);
         } catch (Codec.CodecException | OntologyException ex) {
             Logger.getLogger(AgentePolicia.class.getName()).log(Level.SEVERE, null, ex);
         }
-
+        
         System.out.println(msg);
-
-        mensajesPendientes.add("Jugada pedida \njugador1: " + ((Jugador) jugadores.get(UNO)).getNombre()
-                + "\njugador2: " + ((Jugador) jugadores.get(DOS)).getNombre());
-
+        
+        mensajesPendientes.add("Jugada pedida \njugador1: " + ((Jugador) jugadores.get(PRIMERO)).getNombre()
+                    + "\njugador2: " + ((Jugador) jugadores.get(SEGUNDO)).getNombre() );
+        
         addBehaviour(new TareaJugarPartida(this, msg));
     }
-
-    private void actualizaCondena(List<ResultadoJugador> jugadores, Jugador jugador, int condena) {
+    
+    private void actualizaCondena( List<ResultadoJugador> jugadores, Jugador jugador, int condena) {
         for (ResultadoJugador resultadoJugador : jugadores) {
             if (resultadoJugador.getJugador().getNombre().compareTo(jugador.getNombre()) == 0) {
                 resultadoJugador.setTiempoCondena(resultadoJugador.getTiempoCondena() + condena);
                 resultadoJugador.setActivo(true);
                 break;
             }
-        }
+        } 
     }
-
-    private void contabilizaAbandono(String idPartida) {
+    
+    private void contabilizaAbandono ( String idPartida ) {
         List<ResultadoJugador> jugadores = infoPartidas.get(idPartida).getClasificacion();
         for (ResultadoJugador jugador : jugadores) {
-            if (!jugador.isActivo()) {
+            if ( !jugador.isActivo() ) {
                 jugador.setTiempoCondena(jugador.getTiempoCondena() + PRIMO);
             }
         }
-    }
-
-    private boolean calcularResultado(String idPartida, List<JugadaEntregada> jugadas, Vector respuestas) {
+    } 
+    
+    private boolean calcularResultado( String idPartida, List<JugadaEntregada> jugadas, Vector respuestas) {
         ACLMessage msg;
         ResultadoJugada resultado;
-
+        
         RegistroPartida partida = infoPartidas.get(idPartida);
         List<ResultadoJugador> listaJugadores = partida.getClasificacion();
         partida.aumentarResultados(); // tenemos un resultado nuevo que calcular
-        if (jugadas.size() == 2) { // los dos jugadores han jugado
-            Jugador jugador1 = jugadas.get(UNO).getJugador();
-            Jugador jugador2 = jugadas.get(DOS).getJugador();
-            // Ambos jugadores colaboran
-            actualizaCondena(listaJugadores, jugador1, RECOMPENSA);
-            resultado = new ResultadoJugada(jugadas.get(UNO).getPartida(), RECOMPENSA);
-            msg = (ACLMessage) respuestas.get(UNO);
-
+        if ( jugadas.size() == 1 ) { // un jugador no ha dado su movimiento
+            Jugador jugador = jugadas.get(PRIMERO).getJugador();
+            actualizaCondena(listaJugadores, jugador, TENTACION);
+            resultado = new ResultadoJugada(jugadas.get(PRIMERO).getPartida(), TENTACION);
+            msg = (ACLMessage) respuestas.get(PRIMERO);
+            
             try {
                 manager.fillContent(msg, resultado);
             } catch (Codec.CodecException | OntologyException ex) {
                 Logger.getLogger(AgentePolicia.class.getName()).log(Level.SEVERE, null, ex);
             }
-
-            respuestas.set(UNO, msg);
-
-            actualizaCondena(listaJugadores, jugador2, RECOMPENSA);
-            resultado = new ResultadoJugada(jugadas.get(DOS).getPartida(), RECOMPENSA);
-            msg = (ACLMessage) respuestas.get(DOS);
-
-            try {
-                manager.fillContent(msg, resultado);
-            } catch (Codec.CodecException | OntologyException ex) {
-                Logger.getLogger(AgentePolicia.class.getName()).log(Level.SEVERE, null, ex);
+  
+            respuestas.set(PRIMERO, msg);
+        } else if ( jugadas.size() == 2 ) { // los dos jugadores han jugado
+            Jugador jugador1 = jugadas.get(PRIMERO).getJugador();
+            Jugada jugada1 = jugadas.get(PRIMERO).getRespuesta();
+            Jugador jugador2 = jugadas.get(SEGUNDO).getJugador();
+            Jugada jugada2 = jugadas.get(SEGUNDO).getRespuesta();
+            if ( (jugada1.getRespuesta().compareTo(OntologiaDilemaPrisionero.HABLAR) == 0) &&
+                    (jugada2.getRespuesta().compareTo(OntologiaDilemaPrisionero.HABLAR) == 0) ) {
+                // Ninguno de los jugadores colabora
+                actualizaCondena( listaJugadores, jugador1, CASTIGO);
+                resultado = new ResultadoJugada(jugadas.get(PRIMERO).getPartida(), CASTIGO);
+                msg = (ACLMessage) respuestas.get(PRIMERO);
+                
+                try {
+                    manager.fillContent(msg, resultado);
+                } catch (Codec.CodecException | OntologyException ex) {
+                    Logger.getLogger(AgentePolicia.class.getName()).log(Level.SEVERE, null, ex);
+                }
+                
+                respuestas.set(PRIMERO, msg);
+                
+                actualizaCondena( listaJugadores, jugador2, CASTIGO);
+                resultado = new ResultadoJugada(jugadas.get(SEGUNDO).getPartida(), CASTIGO);
+                msg = (ACLMessage) respuestas.get(SEGUNDO);
+                
+                try {
+                    manager.fillContent(msg, resultado);
+                } catch (Codec.CodecException | OntologyException ex) {
+                    Logger.getLogger(AgentePolicia.class.getName()).log(Level.SEVERE, null, ex);
+                }
+                
+                respuestas.set(SEGUNDO, msg);
+            } else if ( (jugada1.getRespuesta().compareTo(OntologiaDilemaPrisionero.HABLAR) == 0) &&
+                    (jugada2.getRespuesta().compareTo(OntologiaDilemaPrisionero.CALLAR) == 0) ) {
+                // El jugador 1 traiciona al jugador 2
+                actualizaCondena( listaJugadores, jugador1, TENTACION);
+                resultado = new ResultadoJugada(jugadas.get(PRIMERO).getPartida(), TENTACION);
+                msg = (ACLMessage) respuestas.get(PRIMERO);
+                
+                try {
+                    manager.fillContent(msg, resultado);
+                } catch (Codec.CodecException | OntologyException ex) {
+                    Logger.getLogger(AgentePolicia.class.getName()).log(Level.SEVERE, null, ex);
+                }
+                
+                respuestas.set(PRIMERO, msg);
+                
+                actualizaCondena( listaJugadores, jugador2, PRIMO);
+                resultado = new ResultadoJugada(jugadas.get(SEGUNDO).getPartida(), PRIMO);
+                msg = (ACLMessage) respuestas.get(SEGUNDO);
+                
+                try {
+                    manager.fillContent(msg, resultado);
+                } catch (Codec.CodecException | OntologyException ex) {
+                    Logger.getLogger(AgentePolicia.class.getName()).log(Level.SEVERE, null, ex);
+                }
+                
+                respuestas.set(SEGUNDO, msg);
+            } else if ( (jugada1.getRespuesta().compareTo(OntologiaDilemaPrisionero.CALLAR) == 0) &&
+                    (jugada2.getRespuesta().compareTo(OntologiaDilemaPrisionero.HABLAR) == 0) ) {
+                // Jugador 2 traiciona al jugador 1
+                actualizaCondena( listaJugadores, jugador1, PRIMO);
+                resultado = new ResultadoJugada(jugadas.get(PRIMERO).getPartida(), PRIMO);
+                msg = (ACLMessage) respuestas.get(PRIMERO);
+                
+                try {
+                    manager.fillContent(msg, resultado);
+                } catch (Codec.CodecException | OntologyException ex) {
+                    Logger.getLogger(AgentePolicia.class.getName()).log(Level.SEVERE, null, ex);
+                }
+                
+                respuestas.set(PRIMERO, msg);
+                
+                actualizaCondena( listaJugadores, jugador2, TENTACION);
+                resultado = new ResultadoJugada(jugadas.get(SEGUNDO).getPartida(), TENTACION);
+                msg = (ACLMessage) respuestas.get(SEGUNDO);
+                
+                try {
+                    manager.fillContent(msg, resultado);
+                } catch (Codec.CodecException | OntologyException ex) {
+                    Logger.getLogger(AgentePolicia.class.getName()).log(Level.SEVERE, null, ex);
+                }
+                
+                respuestas.set(SEGUNDO, msg);
+            } else {
+                // Ambos jugadores colaboran
+                actualizaCondena( listaJugadores, jugador1, RECOMPENSA);
+                resultado = new ResultadoJugada(jugadas.get(PRIMERO).getPartida(), RECOMPENSA);
+                msg = (ACLMessage) respuestas.get(PRIMERO);
+                
+                try {
+                    manager.fillContent(msg, resultado);
+                } catch (Codec.CodecException | OntologyException ex) {
+                    Logger.getLogger(AgentePolicia.class.getName()).log(Level.SEVERE, null, ex);
+                }
+                
+                respuestas.set(PRIMERO, msg);
+                
+                actualizaCondena( listaJugadores, jugador2, RECOMPENSA);
+                resultado = new ResultadoJugada(jugadas.get(SEGUNDO).getPartida(), RECOMPENSA);
+                msg = (ACLMessage) respuestas.get(SEGUNDO);
+                
+                try {
+                    manager.fillContent(msg, resultado);
+                } catch (Codec.CodecException | OntologyException ex) {
+                    Logger.getLogger(AgentePolicia.class.getName()).log(Level.SEVERE, null, ex);
+                }
+                
+                respuestas.set(SEGUNDO, msg);
             }
-
-            respuestas.set(DOS, msg);
         }
-
         return partida.finRonda();
     }
-
+    
     /**
      * Tarea para iniciar una nueva TareaProponerPartida
      */
     class TareaNuevaPartida extends OneShotBehaviour {
-
         private final DilemaPrisionero configuracion;
 
         public TareaNuevaPartida(DilemaPrisionero configuracion) {
             this.configuracion = configuracion;
         }
-
+        
         @Override
         public void action() {
-
+            
             if (agentesLadron != null) {
                 //Creamos el mensaje para lanzar el protocolo Propose
                 ACLMessage msg = new ACLMessage(ACLMessage.PROPOSE);
@@ -346,31 +437,31 @@ public class AgentePolicia extends Agent {
                     msg.addReceiver(agentes);
                 }
                 msg.setReplyByDate(new Date(System.currentTimeMillis() + TIME_OUT));
-
+            
                 // Creamos el elemento de ontología a enviar
                 partidasIniciadas++;
                 idPartida = myAgent.getName() + "-" + partidasIniciadas;
                 Partida partida = new Partida(idPartida, OntologiaDilemaPrisionero.TIPO_JUEGO);
-                ProponerPartida nuevoJuego = new ProponerPartida(partida,
+                ProponerPartida nuevoJuego = new ProponerPartida( partida, 
                         configuracion);
-
+            
                 // Añadimos el contenido del mensaje
                 try {
                     Action action = new Action(myAgent.getAID(), nuevoJuego);
-                    manager.fillContent(msg, action);
+                    manager.fillContent(msg, action );
                 } catch (Codec.CodecException | OntologyException ex) {
                     Logger.getLogger(AgentePolicia.class.getName()).log(Level.SEVERE, null, ex);
                 }
-
+            
                 System.out.println(msg);
-
+            
                 // Creamos la tarea de ProponerPartida
                 addBehaviour(new TareaProponerPartida(myAgent, msg));
-
+                
                 // Creamos el elemento de información para llevar la partida
                 infoPartidas.put(idPartida, new RegistroPartida(configuracion, idPartida));
-
-                mensajesPendientes.add("Nueva Partida: " + nuevoJuego);
+            
+                mensajesPendientes.add("Nueva Partida: " + nuevoJuego);    
             }
         }
     }
@@ -379,25 +470,25 @@ public class AgentePolicia extends Agent {
      * Tarea para buscas jugadores que quieren jugar una partida
      */
     class TareaProponerPartida extends ProposeInitiator {
-
+        
         public TareaProponerPartida(Agent agente, ACLMessage msg) {
             super(agente, msg);
         }
 
         @Override
         protected void handleAllResponses(Vector responses) {
-
+        
             String rechazos = "Agentes que han rechazado\n";
             int numRechazos = 0;
             ACLMessage msg;
             PartidaAceptada partida = null;
             ArrayList<ResultadoJugador> jugadoresPartida = new ArrayList();
             Iterator it = responses.iterator();
-
+            
             // Recorremos todas las respuestas recibidas
             while (it.hasNext()) {
                 msg = (ACLMessage) it.next();
-                if (msg.getPerformative() == ACLMessage.ACCEPT_PROPOSAL) {
+                if ( msg.getPerformative() == ACLMessage.ACCEPT_PROPOSAL ) {
                     // Obtenemos el jugador para la partida
                     try {
                         partida = (PartidaAceptada) manager.extractContent(msg);
@@ -410,14 +501,13 @@ public class AgentePolicia extends Agent {
                     // El resto de contestaciones se tratan como rechazo
                     numRechazos++;
                     rechazos = rechazos + "El agente: " + msg.getSender().getLocalName()
-                            + " ha rechazado el juego\n";
+                        + " ha rechazado el juego\n";
                 }
             }
-
-            if (numRechazos > 0) {
+            
+            if (numRechazos > 0)
                 mensajesPendientes.add(rechazos);
-            }
-
+            
             // Completamos los datos del registro de la partida e iniciamos
             // el juego
             if (partida != null) {
@@ -427,19 +517,17 @@ public class AgentePolicia extends Agent {
                 infoPartidas.put(idPartida, registroPartida);
                 myAgent.addBehaviour(new TareaInicioRonda(idPartida));
             }
-        }
+        }  
     }
-
+    
     /**
      * Tarea que inicia las rondas de juego donde se establecen las parejas que
-     * se van a enfrentar. Y añadirá tantas TareasJugarPartida como sean
-     * necesarias.
-     *
-     * Si es la primera ronda de la partida, resolverá el problema de no tener
-     * un número de jugadores pares.
+     * se van a enfrentar. Y añadirá tantas TareasJugarPartida como sean necesarias.
+     * 
+     * Si es la primera ronda de la partida, resolverá el problema de no tener un
+     * número de jugadores pares.
      */
     class TareaInicioRonda extends OneShotBehaviour {
-
         private final String idPartida;
         private final Partida partida;
 
@@ -448,30 +536,30 @@ public class AgentePolicia extends Agent {
             partidasActivas.add(idPartida);
             partida = new Partida(idPartida, OntologiaDilemaPrisionero.TIPO_JUEGO);
         }
-
+        
         @Override
         public void action() {
             List<ResultadoJugador> jugadoresPartida;
             RegistroPartida partidaActiva;
-
+        
             // Recuperamos los datos de la partida para la nueva ronda
             partidaActiva = infoPartidas.get(idPartida);
-            if (partidaActiva.getRonda() == PRIMERA_RONDA) {
+            if ( partidaActiva.getRonda() == PRIMERA_RONDA ) {
                 resolverImpar(partidaActiva);
                 presentacionPartida(idPartida, false);
             }
-
-            if (!partidaActiva.finPartida()) {
+            
+            if ( !partidaActiva.finPartida() ) {
                 // Empieza una nueva ronda
                 partidaActiva.aumentarRonda();
                 mensajesPendientes.add("Jugando la Ronda: " + partidaActiva.getRonda());
-
+            
                 // Preparamos las parejas y se inicia la ronda de la partida
                 jugadoresPartida = partidaActiva.getClasificacion();
                 Collections.shuffle(jugadoresPartida);
                 Iterator it = jugadoresPartida.iterator();
                 List<Jugador> jugadores = new ArrayList();
-                while (it.hasNext()) {
+                while ( it.hasNext() ) {
                     ResultadoJugador jugador = (ResultadoJugador) it.next();
                     jugadores.add(jugador.getJugador());
                     jugador = (ResultadoJugador) it.next();
@@ -481,14 +569,14 @@ public class AgentePolicia extends Agent {
                 }
             } else {
                 presentacionPartida(idPartida, true);
+                myAgent.addBehaviour(new TareaFinJuego(idPartida));
             }
         }
     }
-
+    
     class TareaJugarPartida extends ContractNetInitiator {
-
         private boolean finRonda;
-
+        
         public TareaJugarPartida(Agent a, ACLMessage cfp) {
             super(a, cfp);
             finRonda = false;
@@ -500,17 +588,17 @@ public class AgentePolicia extends Agent {
             JugadaEntregada jugada = null;
             ACLMessage respuesta;
             List<JugadaEntregada> jugadas = new ArrayList();
-
+            
             Iterator it = responses.iterator();
-            while (it.hasNext()) {
+            while ( it.hasNext() ) {
                 ACLMessage msg = (ACLMessage) it.next();
-
+                
                 try {
                     jugada = (JugadaEntregada) manager.extractContent(msg);
                 } catch (Codec.CodecException | OntologyException ex) {
                     Logger.getLogger(AgentePolicia.class.getName()).log(Level.SEVERE, null, ex);
                 }
-
+                
                 respuesta = msg.createReply();
                 respuesta.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
                 acceptances.add(respuesta);
@@ -519,10 +607,10 @@ public class AgentePolicia extends Agent {
                         + "\ndel jugador: " + jugada.getJugador().getNombre()
                         + "\ny la jugada: " + jugada.getRespuesta().getRespuesta() + "\n";
             }
-
+            
             mensajesPendientes.add(resultado);
             finRonda = calcularResultado(jugada.getPartida().getIdPartida(), jugadas, acceptances);
-            if (finRonda) {
+            if ( finRonda ) {
                 contabilizaAbandono(jugada.getPartida().getIdPartida());
                 // Clasificación a la finalización de la ronda
                 presentacionPartida(idPartida, false);
@@ -530,80 +618,144 @@ public class AgentePolicia extends Agent {
             }
         }
     }
-
+        
     /**
      * Tarea que gestiona la suscripción para informar a los jugadores cuando
      * una partida ha terminado y el ganador de esa partida
      */
     class TareaInformarPartida extends SubscriptionResponder {
-
         private Subscription suscripcionJugador;
-
-        public TareaInformarPartida(Agent a, MessageTemplate mt, SubscriptionManager sm) {
-            super(a, mt, sm);
+        
+        public TareaInformarPartida(Agent a, MessageTemplate mt) {
+            super(a, mt);
         }
 
         @Override
         protected ACLMessage handleSubscription(ACLMessage subscription) throws NotUnderstoodException, RefuseException {
             InformarPartida partida = null;
-
+            
             try {
                 Action ac = (Action) manager.extractContent(subscription);
                 partida = (InformarPartida) ac.getAction();
             } catch (Codec.CodecException | OntologyException ex) {
                 Logger.getLogger(AgentePolicia.class.getName()).log(Level.SEVERE, null, ex);
             }
-
-            // Registra la suscripción del Jugador
-            suscripcionJugador = createSubscription(subscription);
-            mySubscriptionManager.register(suscripcionJugador);
-
+            
+            // Registra la suscripción del Jugador si no hay una previa
+            List suscripciones = this.getSubscriptions(subscription.getSender());
+            if (suscripciones.isEmpty()) {
+                
+                suscripcionJugador = createSubscription(subscription);
+                //mySubscriptionManager.register(suscripcionJugador);
+            
+                mensajesPendientes.add("Suscripción registrada al agente: " +
+                        subscription.getSender().getLocalName());
+            } else {
+                // Ya tenemos una suscripción anterior del jugador y no 
+                // volvemos a registrarlo.
+                
+                mensajesPendientes.add("Suscripción ya registrada al agente: " +
+                        subscription.getSender().getLocalName());
+            }
+            
             // Responde afirmativamente con la operación
             ACLMessage agree = subscription.createReply();
             agree.setPerformative(ACLMessage.AGREE);
-
-            mensajesPendientes.add("Suscripción registrada al agente: "
-                    + subscription.getSender().getLocalName());
             return agree;
         }
-
+        
         @Override
         protected ACLMessage handleCancel(ACLMessage cancel) throws FailureException {
-            // Eliminamos la suscripción
+            List suscripciones;
+            
+            // Eliminamos la suscripción del agente jugador
+            suscripciones = this.getSubscriptions(cancel.getSender());
+            suscripcionJugador = (Subscription) suscripciones.get(PRIMERO);
             mySubscriptionManager.deregister(suscripcionJugador);
-
+            
             // Informe de la cancelación
             ACLMessage cancelado = cancel.createReply();
             cancelado.setPerformative(ACLMessage.INFORM);
-
-            mensajesPendientes.add("Suscripción cancelada del agente: "
-                    + cancel.getSender().getLocalName());
+            
+            mensajesPendientes.add("Suscripción cancelada del agente: " + 
+                    cancel.getSender().getLocalName()+ 
+                    "\nsuscripciones restantes: " + this.getSubscriptions().size());
             return cancelado;
         }
     }
+    
+    /**
+     * Tarea para informar de la finalización de una partida
+     */
+    class TareaFinJuego extends OneShotBehaviour {
+        private String idPartida;
 
+        public TareaFinJuego( String idPartida ) {
+            this.idPartida = idPartida;
+        }
+
+        @Override
+        public void action() {
+            Iterator it;
+            Subscription suscripcion;
+            List suscripciones;
+            GanadorPartida ganador;
+            ResultadoJugador jugadorPartida;
+                
+            mensajesPendientes.add("FINALIZACION DE LA PARTIDA\n" + idPartida);
+            // Localizamos las suscripciones de los jugadores de la partida
+            // que ha finalizado para enviarles el ganador
+            it = infoPartidas.get(idPartida).getClasificacion().iterator();
+            while( it.hasNext()) {
+                jugadorPartida = (ResultadoJugador) it.next();
+                suscripciones = eventosPolicia.getSubscriptions(
+                        jugadorPartida.getJugador().getAgenteJugador());
+                suscripcion = (Subscription) suscripciones.get(PRIMERO);
+
+                Jugador jugador = new Jugador("JugadorPrueba", myAgent.getAID());
+                ganador = new GanadorPartida(jugador);
+                ACLMessage msgGanador = new ACLMessage(ACLMessage.INFORM);
+                msgGanador.setLanguage(codec.getName());
+                msgGanador.setOntology(ontology.getName());
+                        
+                try {
+                    DetalleInforme partidaFinalizada = new DetalleInforme(new Partida(idPartida, 
+                                    OntologiaDilemaPrisionero.TIPO_JUEGO), ganador);
+                    manager.fillContent(msgGanador, partidaFinalizada);
+                } catch (Codec.CodecException | OntologyException ex) {
+                    Logger.getLogger(AgentePolicia.class.getName()).log(Level.SEVERE, null, ex);
+                }
+                        
+                suscripcion.notify(msgGanador);
+                        
+                mensajesPendientes.add("Envio INFORM al agente: \n" +
+                        jugadorPartida.getJugador().getNombre() +
+                        " FIN PARTIDA");
+            }
+        }
+    }
+    
     class TareaVisualizacionJuego extends TickerBehaviour {
 
         public TareaVisualizacionJuego(Agent a, long period) {
             super(a, period);
         }
-
+       
         @Override
         protected void onTick() {
-            if (!presentacionPartidas.isEmpty()) {
-                ElmPresentacion presentacion = presentacionPartidas.remove(UNO);
+            if ( !presentacionPartidas.isEmpty() ) {
+                ElmPresentacion presentacion = presentacionPartidas.remove(PRIMERO);
                 RegistroPartida partida = infoPartidas.get(presentacion.getIdPartida());
                 partida.getPartidaGUI().presentarResultados(presentacion, partida.getJuego().getRondas());
             }
         }
     }
-
+    
     /**
      * Tarea que localizará los agentes consola presentes en la plataforma y
      * los agentes ladrón para el juego.
      */
     class TareaBuscarAgentes extends TickerBehaviour {
-
         //Se buscarán agentes consola y operación
         public TareaBuscarAgentes(Agent a, long period) {
             super(a, period);
@@ -614,15 +766,15 @@ public class AgentePolicia extends Agent {
             DFAgentDescription template;
             ServiceDescription sd;
             DFAgentDescription[] result;
-
+            
             //Busca agentes consola
             template = new DFAgentDescription();
             sd = new ServiceDescription();
             sd.setName(OntologiaDilemaPrisionero.REGISTRO_CONSOLA);
             template.addServices(sd);
-
+            
             try {
-                result = DFService.search(myAgent, template);
+                result = DFService.search(myAgent, template); 
                 if (result.length > 0) {
                     System.out.println("Se han encontrado las siguientes consolas:");
                     agentesConsola = new AID[result.length];
@@ -630,22 +782,24 @@ public class AgentePolicia extends Agent {
                         agentesConsola[i] = result[i].getName();
                         System.out.println(agentesConsola[i].getName());
                     }
-                } else {
+                }
+                else {
                     System.out.println("No se han encontrado consolas:");
                     agentesConsola = null;
                 }
-            } catch (FIPAException fe) {
-                fe.printStackTrace();
             }
-
+            catch (FIPAException fe) {
+		fe.printStackTrace();
+            }
+            
             //Busca agentes larón
             template = new DFAgentDescription();
             sd = new ServiceDescription();
             sd.setName(OntologiaDilemaPrisionero.REGISTRO_PRISIONERO);
             template.addServices(sd);
-
+            
             try {
-                result = DFService.search(myAgent, template);
+                result = DFService.search(myAgent, template); 
                 if (result.length >= MINIMO_LADRONES) {
                     System.out.println("Se han encontrado las siguientes agentes ladrón:");
                     agentesLadron = new AID[result.length];
@@ -654,17 +808,19 @@ public class AgentePolicia extends Agent {
                         System.out.println(agentesLadron[i].getName());
                     }
                     myGUI.activarNuevaPartida(result.length);
-                } else {
+                }
+                else {
                     System.out.println("No se han encontrado suficientes agentes ladrón:");
                     myGUI.anularNuevaPartida(result.length);
                     agentesLadron = null;
-                }
-            } catch (FIPAException fe) {
-                fe.printStackTrace();
+                } 
+            }
+            catch (FIPAException fe) {
+		fe.printStackTrace();
             }
         }
     }
-
+    
     /**
      * Tarea para enviar los mensajes a un agente consola que esté dispnible,
      * si no hay ninguno no hace nada.
@@ -679,26 +835,22 @@ public class AgentePolicia extends Agent {
         protected void onTick() {
             ACLMessage mensaje;
             if (agentesConsola != null) {
-                if (!mensajesPendientes.isEmpty()) {
+                AID consola = agentesConsola[PRIMERO];
+                Iterator it = mensajesPendientes.iterator();
+                while ( it.hasNext() ) {
                     System.out.println("Empieza el envío");
                     mensaje = new ACLMessage(ACLMessage.INFORM);
                     mensaje.setSender(myAgent.getAID());
-                    mensaje.addReceiver(agentesConsola[0]);
-                    mensaje.setContent(mensajesPendientes.remove(0));
-
-                    //
-                    System.out.println("Enviado a: " + agentesConsola[0].getName());
+                    mensaje.addReceiver(consola);
+                    String contenido = (String) it.next();
+           
+                    mensaje.setContent(contenido);
+            
+                    System.out.println("Enviado a: " + consola.getName());
                     System.out.println("Contenido: " + mensaje.getContent());
-
+            
                     myAgent.send(mensaje);
-                } else {
-//                    mensaje = new ACLMessage(ACLMessage.INFORM);
-//                    mensaje.setSender(myAgent.getAID());
-//                    mensaje.addReceiver(agentesConsola[0]);
-//                    mensaje.setContent("No hay mensajes pendientes");
-//                    // myAgent.send(mensaje);
-//
-//                    System.out.println(mensaje);
+                    it.remove();
                 }
             }
         }

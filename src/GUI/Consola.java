@@ -24,7 +24,7 @@ public class Consola extends javax.swing.JFrame {
         
         this.nombreAgente = nombreAgente;
         
-        this.setTitle("Consola de : " + nombreAgente);
+        this.setTitle("CONSOLA de : " + nombreAgente);
     }
 
     public String getNombreAgente() {
@@ -35,8 +35,8 @@ public class Consola extends javax.swing.JFrame {
         if (isVisible() != true) {
             setVisible(true);
         }
-        salida.append(mensaje.toString());
-        salida.append("----------------------------------------------------\n");
+        salida.append(mensaje.getContenido());
+        salida.append("\n---------------------------------------------------------\n");
     }
 
     /**
@@ -61,6 +61,7 @@ public class Consola extends javax.swing.JFrame {
 
         salida.setEditable(false);
         salida.setColumns(20);
+        salida.setLineWrap(true);
         salida.setRows(5);
         jScrollPane1.setViewportView(salida);
 
