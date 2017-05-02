@@ -677,9 +677,9 @@ public class AgentePolicia extends Agent {
             ACLMessage cancelado = cancel.createReply();
             cancelado.setPerformative(ACLMessage.INFORM);
             
-            mensajesPendientes.add("Suscripción cancelada del agente: " + 
-                    cancel.getSender().getLocalName()+ 
-                    "\nsuscripciones restantes: " + this.getSubscriptions().size());
+//            mensajesPendientes.add("Suscripción cancelada del agente: " + 
+//                    cancel.getSender().getLocalName()+ 
+//                    "\nsuscripciones restantes: " + this.getSubscriptions().size());
             return cancelado;
         }
     }
@@ -708,9 +708,8 @@ public class AgentePolicia extends Agent {
             it = infoPartidas.get(idPartida).getClasificacion().iterator();
             while( it.hasNext()) {
                 jugadorPartida = (ResultadoJugador) it.next();
-                suscripciones = eventosPolicia.getSubscriptions(
-                        jugadorPartida.getJugador().getAgenteJugador());
-                suscripcion = (Subscription) suscripciones.get(PRIMERO);
+                suscripciones = eventosPolicia.getSubscriptions(jugadorPartida.getJugador().getAgenteJugador());
+                //suscripcion = (Subscription) suscripciones.get(PRIMERO);
 
                 Jugador jugador = new Jugador("JugadorPrueba", myAgent.getAID());
                 ganador = new GanadorPartida(jugador);
@@ -726,7 +725,7 @@ public class AgentePolicia extends Agent {
                     Logger.getLogger(AgentePolicia.class.getName()).log(Level.SEVERE, null, ex);
                 }
                         
-                suscripcion.notify(msgGanador);
+                //suscripcion.notify(msgGanador);
                         
                 mensajesPendientes.add("Envio INFORM al agente: \n" +
                         jugadorPartida.getJugador().getNombre() +

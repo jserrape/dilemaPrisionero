@@ -103,7 +103,7 @@ public class AgenteLadron extends Agent {
 
         mensajesPendientes.add("ME HE CONECTADO A LA PLATAFORMA");
 
-        jugador = new Jugador(this.getName(), this.getAID());
+        jugador = new Jugador(this.getLocalName(), this.getAID());
 
         //BUSCO LA CONSULA Y LE MANDO LOS MENSAJES
         addBehaviour(new TareaBuscarConsola(this, 5000));
