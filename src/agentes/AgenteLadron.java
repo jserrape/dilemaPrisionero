@@ -35,12 +35,14 @@ import jade.domain.FIPAException;
 import jade.domain.FIPANames;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
+import jade.lang.acl.UnreadableException;
 import jade.proto.ContractNetResponder;
 import jade.proto.ProposeResponder;
 import jade.proto.SubscriptionInitiator;
 import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import juegos.elementos.GanadorPartida;
 import juegos.elementos.InformarPartida;
 import juegos.elementos.Jugador;
 import juegos.elementos.Partida;
@@ -207,8 +209,28 @@ public class AgenteLadron extends Agent {
 
         //Maneja la informacion enviada: INFORM
         @Override
-        protected void handleInform(ACLMessage ganador) {
-            mensajesPendientes.add("Me ha llegado un ganador de partida");
+        protected void handleInform(ACLMessage inform) {
+            mensajesPendientes.add("Me ha llegado un subscribe");
+            try {
+                Object content = inform.getContentObject();
+                
+                if (content instanceof GanadorPartida){
+                    GanadorPartida gp = (GanadorPartida) manager.extractContent(inform);
+                    mensajesPendientes.add("El ganador de la partida ha sido "+gp.getJugador().getNombre());
+                }else{
+                    if (content instanceof juegos.elementos.Error){
+                        juegos.elementos.Error err = (juegos.elementos.Error) manager.extractContent(inform);
+                         mensajesPendientes.add("Ha habido un error:\n  "+err.getDetalle());
+                    }
+                }
+                
+            } catch (UnreadableException ex) {
+                Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (Codec.CodecException ex) {
+                Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (OntologyException ex) {
+                Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
+            }
         }
 
         //Maneja la respuesta en caso de fallo: FAILURE
