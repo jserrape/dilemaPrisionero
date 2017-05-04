@@ -3,10 +3,8 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-//-container -host 192.168.38.100 -agents MartinezLledo:agentes.AgenteLadron;MartinezLledoC:agentes.AgenteConsola
-//Para hacer: cuando llega un mensaje hay que meter el nombre (AID o lo que sea) en una lista y comprobar si estaba antes,
-//Si envía True (no estaba) hacer la subscripción, y si estaba (False) no hacer nada nuevo
-//Se envía un Inform(DetalleInforme) con Partida y Detalle(Concepto) Que realizará Guardar(Jugador) o un Error(String)
+//  -container -host 192.168.38.100 -agents jcsp0003:agentes.AgenteLadron;jcsp0003C:agentes.AgenteConsola
+//  -container -host 192.168.36.100 -agents SerranoPerez:agentes.AgenteLadron;SerranoPerezC:agentes.AgenteConsola
 package agentes;
 
 import dilemaPrisionero.OntologiaDilemaPrisionero;
@@ -42,6 +40,7 @@ import jade.proto.SubscriptionInitiator;
 import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import juegos.elementos.DetalleInforme;
 import juegos.elementos.GanadorPartida;
 import juegos.elementos.InformarPartida;
 import juegos.elementos.Jugador;
@@ -145,7 +144,7 @@ public class AgenteLadron extends Agent {
             //Busca agentes consola
             DFAgentDescription template = new DFAgentDescription();
             ServiceDescription sd = new ServiceDescription();
-            sd.setName(OntologiaDilemaPrisionero.REGISTRO_CONSOLA);
+            sd.setName(OntologiaDilemaPrisionero.REGISTRO_CONSOLA + "jcsp0003");
             template.addServices(sd);
             try {
                 DFAgentDescription[] result = DFService.search(myAgent, template);
@@ -211,25 +210,24 @@ public class AgenteLadron extends Agent {
         @Override
         protected void handleInform(ACLMessage inform) {
             mensajesPendientes.add("Me ha llegado un subscribe");
+
+            DetalleInforme detalle = null;
             try {
-                Object content = inform.getContentObject();
-                
-                if (content instanceof GanadorPartida){
-                    GanadorPartida gp = (GanadorPartida) manager.extractContent(inform);
-                    mensajesPendientes.add("El ganador de la partida ha sido "+gp.getJugador().getNombre());
-                }else{
-                    if (content instanceof juegos.elementos.Error){
-                        juegos.elementos.Error err = (juegos.elementos.Error) manager.extractContent(inform);
-                         mensajesPendientes.add("Ha habido un error:\n  "+err.getDetalle());
-                    }
-                }
-                
-            } catch (UnreadableException ex) {
-                Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
+                detalle = (DetalleInforme) manager.extractContent(inform);
             } catch (Codec.CodecException ex) {
                 Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
             } catch (OntologyException ex) {
                 Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+            if (detalle.getDetalle() instanceof GanadorPartida) {
+                GanadorPartida gp = (GanadorPartida) detalle.getDetalle();
+                mensajesPendientes.add("El ganador de la partida ha sido " + gp.getJugador().getNombre());
+            } else {
+                if (detalle.getDetalle() instanceof juegos.elementos.Error) {
+                    juegos.elementos.Error err = (juegos.elementos.Error) detalle.getDetalle();
+                    mensajesPendientes.add("Ha habido un error:\n  " + err.getDetalle());
+                }
             }
         }
 
@@ -252,7 +250,7 @@ public class AgenteLadron extends Agent {
 
         @Override
         protected ACLMessage prepareResponse(ACLMessage propuesta) throws NotUnderstoodException {
-            mensajesPendientes.add("Me ha llegado una proposicion de partida");
+            //mensajesPendientes.add("Me ha llegado una proposicion de partida");
 
             ProponerPartida pp = null;
             Partida p = null;
@@ -321,12 +319,11 @@ public class AgenteLadron extends Agent {
             } catch (Codec.CodecException | OntologyException ex) {
                 Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
             }
-            mensajesPendientes.add("Me ha llegado una peticion de ronda para la partida con id=" + entJug.getPartida().getIdPartida());
+            //mensajesPendientes.add("Me ha llegado una peticion de ronda para la partida con id=" + entJug.getPartida().getIdPartida());
             //De lo anterior leo quien es mi oponente
             int numero = ((int) (Math.random() * 1000)) % 2;
             Partida part = entJug.getPartida();
             Jugada jugada;
-            mensajesPendientes.add(numero + "");
             if (numero == 1) {
                 jugada = new Jugada(OntologiaDilemaPrisionero.CALLAR);
             } else {
