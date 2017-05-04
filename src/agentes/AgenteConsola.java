@@ -44,7 +44,7 @@ public class AgenteConsola extends Agent {
         dfd.setName(getAID());
 	ServiceDescription sd = new ServiceDescription();
 	sd.setType("GUI");
-	sd.setName(OntologiaDilemaPrisionero.REGISTRO_CONSOLA+"jcsp0003");
+	sd.setName(OntologiaDilemaPrisionero.REGISTRO_CONSOLA);
 	dfd.addServices(sd);
 	try {
             DFService.register(this, dfd);

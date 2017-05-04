@@ -5,9 +5,8 @@
  */
 package gui;
 
-import java.util.Collections;
+import agentes.AgentePolicia;
 import java.util.Iterator;
-import java.util.List;
 import util.ElmPresentacion;
 
 /**
@@ -15,15 +14,19 @@ import util.ElmPresentacion;
  * @author pedroj
  */
 public class PartidaJFrame extends javax.swing.JFrame {
+    private final String idPartida;
+    private final AgentePolicia myAgent;
 
     /**
      * Creates new form PartidaJFrame
-     * @param nombre
+     * @param idPartida
      */
-    public PartidaJFrame(String nombre) {
+    public PartidaJFrame(String idPartida, AgentePolicia agent) {
         initComponents();
         
-        this.setTitle("Partida: " + nombre);
+        this.idPartida = idPartida;
+        this.myAgent = agent;
+        this.setTitle("Partida: " + idPartida);
         finPartida.setVisible(false);
     }
 
@@ -75,6 +78,11 @@ public class PartidaJFrame extends javax.swing.JFrame {
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
         setResizable(false);
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            public void windowClosing(java.awt.event.WindowEvent evt) {
+                formWindowClosing(evt);
+            }
+        });
 
         jLabel1.setFont(new java.awt.Font("Arial", 1, 14)); // NOI18N
         jLabel1.setText("Agente Jugador");
@@ -147,7 +155,7 @@ public class PartidaJFrame extends javax.swing.JFrame {
                             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                             .addComponent(ronda)))
                     .addComponent(finPartida))
-                .addContainerGap(25, Short.MAX_VALUE))
+                .addContainerGap(38, Short.MAX_VALUE))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -180,6 +188,12 @@ public class PartidaJFrame extends javax.swing.JFrame {
         pack();
         setLocationRelativeTo(null);
     }// </editor-fold>//GEN-END:initComponents
+
+    private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
+        // TODO add your handling code here:
+        if (!myAgent.finPartida(idPartida))
+            myAgent.cancelaPartida(idPartida);
+    }//GEN-LAST:event_formWindowClosing
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JTextArea agenteJugador;

@@ -25,7 +25,7 @@ public class ErrorJFrame extends javax.swing.JFrame {
     
     public void presentarError ( String error ) {
         detalleError.append(error);
-        detalleError.append("\n\n");
+        detalleError.append("\n--------------------------------------------------------\n");
     }
 
     /**

@@ -5,6 +5,7 @@
  */
 package util;
 
+import agentes.AgentePolicia;
 import dilemaPrisionero.elementos.DilemaPrisionero;
 import gui.PartidaJFrame;
 import java.util.List;
@@ -17,15 +18,20 @@ public class RegistroPartida {
     private DilemaPrisionero juego;
     private List<ResultadoJugador> clasificacion;
     private final PartidaJFrame partidaGUI;
-    private int ronda;
-    private int numResultados;
+    private int ronda; // ronda de juego
+    private int numResultados; // enfrentamientos completados de la ronda
+    private boolean finPartida; 
+    private boolean cancelada; 
+    private String error; // causas de finalización de la partida
 
-    public RegistroPartida(DilemaPrisionero juego, String idPartida) {
+    public RegistroPartida(DilemaPrisionero juego, String idPartida, AgentePolicia agent) {
         this.juego = juego;
         this.clasificacion = null;
-        this.partidaGUI = new PartidaJFrame(idPartida);
+        this.partidaGUI = new PartidaJFrame(idPartida, agent);
         this.ronda = 0;
         this.numResultados = 0;
+        this.finPartida = false;
+        this.cancelada = false;
     }
 
     public DilemaPrisionero getJuego() {
@@ -59,6 +65,23 @@ public class RegistroPartida {
     public int getNumEnfrentamientos() {
         return numResultados;
     }
+
+    public String getError() {
+        return error;
+    }
+
+    public void setError(String error) {
+        this.error = error;
+    }
+
+    public boolean isCancelada() {
+        return cancelada;
+    }
+
+    public void setCancelada(boolean cancelada) {
+        this.cancelada = cancelada;
+        this.finPartida = cancelada;
+    }
    
     public void aumentarRonda() {
         ronda++;
@@ -74,11 +97,11 @@ public class RegistroPartida {
     }
     
     public boolean finPartida() {
-        if ( ronda >= juego.getRondas()) {
+        if ( (ronda >= juego.getRondas()) && !finPartida) {
             if ( Math.random()*100 < juego.getProbabilidadFin() ) {
-                return true;
+                finPartida = true;
             }
         }
-        return false;
+        return finPartida;
     }
 }

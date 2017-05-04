@@ -38,6 +38,8 @@ import jade.proto.ContractNetResponder;
 import jade.proto.ProposeResponder;
 import jade.proto.SubscriptionInitiator;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import juegos.elementos.DetalleInforme;
@@ -46,12 +48,15 @@ import juegos.elementos.InformarPartida;
 import juegos.elementos.Jugador;
 import juegos.elementos.Partida;
 import juegos.elementos.PartidaAceptada;
+import util.ContenedorPartida;
 
 /**
  *
  * @author jcsp0003
  */
 public class AgenteLadron extends Agent {
+
+    private Map<String, ContenedorPartida> mapaPartidas;
 
     private Codec codec = new SLCodec();
 
@@ -72,6 +77,7 @@ public class AgenteLadron extends Agent {
     protected void setup() {
         //Inicialización de las variables del agente   
         mensajesPendientes = new ArrayList();
+        mapaPartidas = new HashMap<>();
 
         DFAgentDescription dfd = new DFAgentDescription();
         ServiceDescription sd = new ServiceDescription();
@@ -220,14 +226,19 @@ public class AgenteLadron extends Agent {
                 Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
             }
 
-            if (detalle.getDetalle() instanceof GanadorPartida) {
-                GanadorPartida gp = (GanadorPartida) detalle.getDetalle();
-                mensajesPendientes.add("El ganador de la partida ha sido " + gp.getJugador().getNombre());
-            } else {
-                if (detalle.getDetalle() instanceof juegos.elementos.Error) {
-                    juegos.elementos.Error err = (juegos.elementos.Error) detalle.getDetalle();
-                    mensajesPendientes.add("Ha habido un error:\n  " + err.getDetalle());
+            if (mapaPartidas.containsKey(detalle.getPartida().getIdPartida())) {
+                ContenedorPartida contenedor= mapaPartidas.get(detalle.getPartida().getIdPartida());
+                if (detalle.getDetalle() instanceof GanadorPartida) {
+                    GanadorPartida gp = (GanadorPartida) detalle.getDetalle();
+                    mensajesPendientes.add("El ganador de la partida ha sido " + gp.getJugador().getNombre() + "\n A mi me han caido "+contenedor.getCondena()+" años.");
+                } else {
+                    if (detalle.getDetalle() instanceof juegos.elementos.Error) {
+                        juegos.elementos.Error err = (juegos.elementos.Error) detalle.getDetalle();
+                        mensajesPendientes.add("Ha habido un error:\n  " + err.getDetalle());
+                    }
                 }
+            }else{
+                mensajesPendientes.add("Me ha llegado un subscribe que no me pertenece");
             }
         }
 
@@ -250,6 +261,8 @@ public class AgenteLadron extends Agent {
 
         @Override
         protected ACLMessage prepareResponse(ACLMessage propuesta) throws NotUnderstoodException {
+            //mensajesPendientes.add("Me ha llegado una proposicion de partida");
+
             ProponerPartida pp = null;
             Partida p = null;
             try {
@@ -260,8 +273,10 @@ public class AgenteLadron extends Agent {
                 Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
             }
 
-            Jugador j = new Jugador(this.myAgent.getLocalName(), this.myAgent.getAID());
-            PartidaAceptada pa = new PartidaAceptada(p, j);
+            ContenedorPartida cont = new ContenedorPartida(p, p.getIdPartida(), pp.getCondiciones());
+            mapaPartidas.put(p.getIdPartida(), cont);
+
+            PartidaAceptada pa = new PartidaAceptada(p, jugador);
 
             ACLMessage agree = propuesta.createReply();
             agree.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
@@ -289,11 +304,12 @@ public class AgenteLadron extends Agent {
 
             //Se añade el destinatario del mensaje
             AID id = new AID();
-            id.setLocalName(OntologiaDilemaPrisionero.REGISTRO_POLICIA);
+            id.setLocalName(OntologiaDilemaPrisionero.REGISTRO_POLICIA); //<--- Cambiar aqui, sacar el AID de propuesta
             mensaje.addReceiver(id);
 
             //ME REGISTRO AL SUBSCRIBE
             addBehaviour(new InformarPartidaSubscribe(this.myAgent, mensaje));
+
             return agree;
         }
     }
@@ -315,31 +331,38 @@ public class AgenteLadron extends Agent {
             } catch (Codec.CodecException | OntologyException ex) {
                 Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
             }
-            //mensajesPendientes.add("Me ha llegado una peticion de ronda para la partida con id=" + entJug.getPartida().getIdPartida());
-            //De lo anterior leo quien es mi oponente
-            int numero = ((int) (Math.random() * 1000)) % 2;
-            Partida part = entJug.getPartida();
-            Jugada jugada;
-            if (numero == 1) {
-                jugada = new Jugada(OntologiaDilemaPrisionero.CALLAR);
+
+            if (mapaPartidas.containsKey(entJug.getPartida().getIdPartida())) {
+                ContenedorPartida contenedor = mapaPartidas.get(entJug.getPartida().getIdPartida());
+                int numero = ((int) (Math.random() * 1000)) % 2;
+                Partida part = entJug.getPartida();
+                Jugada jugada;
+                if (numero == 1) {
+                    jugada = new Jugada(OntologiaDilemaPrisionero.CALLAR);
+                    contenedor.setRespuestaAnterior(OntologiaDilemaPrisionero.CALLAR);
+                    mensajesPendientes.add(OntologiaDilemaPrisionero.CALLAR);
+                } else {
+                    jugada = new Jugada(OntologiaDilemaPrisionero.HABLAR);
+                    contenedor.setRespuestaAnterior(OntologiaDilemaPrisionero.HABLAR);
+                    mensajesPendientes.add(OntologiaDilemaPrisionero.HABLAR);
+                }
+                JugadaEntregada jugEnt = new JugadaEntregada(part, jugador, jugada);
+
+                ACLMessage respuesta = cfp.createReply();
+                respuesta.setPerformative(ACLMessage.PROPOSE);
+                respuesta.setSender(myAgent.getAID());
+                respuesta.setLanguage(codec.getName());
+                respuesta.setOntology(ontologia.getName());
+
+                try {
+                    manager.fillContent(respuesta, jugEnt);
+                } catch (Codec.CodecException | OntologyException ex) {
+                    Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
+                }
+                return respuesta;
             } else {
-                jugada = new Jugada(OntologiaDilemaPrisionero.HABLAR);
+                throw new RefuseException("No pertenezco a esa partida");
             }
-            JugadaEntregada jugEnt = new JugadaEntregada(part, jugador, jugada);
-
-            ACLMessage respuesta = cfp.createReply();
-            respuesta.setPerformative(ACLMessage.PROPOSE);
-            respuesta.setSender(myAgent.getAID());
-            respuesta.setLanguage(codec.getName());
-            respuesta.setOntology(ontologia.getName());
-
-            try {
-                manager.fillContent(respuesta, jugEnt);
-            } catch (Codec.CodecException | OntologyException ex) {
-                Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
-            }
-
-            return respuesta;
         }
 
         @Override
@@ -348,12 +371,13 @@ public class AgenteLadron extends Agent {
 
             try {
                 resultado = (ResultadoJugada) manager.extractContent(accept);
+                if (mapaPartidas.containsKey(resultado.getPartida().getIdPartida())) {
+                    ContenedorPartida contenedor = mapaPartidas.get(resultado.getPartida().getIdPartida());
+                    contenedor.nuevaJugada(resultado);
+                }
             } catch (Codec.CodecException | OntologyException ex) {
                 Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
             }
-
-            condenaAcumulada += resultado.getCondenaRecibida();
-            mensajesPendientes.add("Me ha llegado un ResultadoJugada, me han caido: " + resultado.getCondenaRecibida() + " años, llevo " + condenaAcumulada);
 
             ACLMessage inform = accept.createReply();
             inform.setPerformative(ACLMessage.INFORM);
