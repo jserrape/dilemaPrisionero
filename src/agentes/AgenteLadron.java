@@ -3,6 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
+//  -agents ladron1:agentes.AgenteLadron;ladron2:agentes.AgenteLadron;ladron3:agentes.AgenteLadron;ladron4:agentes.AgenteLadron;Consola:agentes.AgenteConsola;Policia:agentes.AgentePolicia
 //  -container -host 192.168.38.100 -agents jcsp0003:agentes.AgenteLadron;jcsp0003C:agentes.AgenteConsola
 //  -container -host 192.168.36.100 -agents SerranoPerez:agentes.AgenteLadron;SerranoPerezC:agentes.AgenteConsola
 package agentes;
