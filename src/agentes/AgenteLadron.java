@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-//  -agents ladron1:agentes.AgenteLadron;ladron2:agentes.AgenteLadron;ladron3:agentes.AgenteLadron;ladron4:agentes.AgenteLadron;Consola:agentes.AgenteConsola;Policia:agentes.AgentePolicia
+//  -gui -agents ladron1:agentes.AgenteLadron;ladron2:agentes.AgenteLadron;ladron3:agentes.AgenteLadron;ladron4:agentes.AgenteLadron;Consola:agentes.AgenteConsola;Policia:agentes.AgentePolicia;
 //  -container -host 192.168.38.100 -agents jcsp0003:agentes.AgenteLadron;jcsp0003C:agentes.AgenteConsola
 //  -container -host 192.168.36.100 -agents SerranoPerez:agentes.AgenteLadron;SerranoPerezC:agentes.AgenteConsola
 package agentes;
@@ -39,6 +39,9 @@ import jade.proto.ContractNetResponder;
 import jade.proto.ProposeResponder;
 import jade.proto.SubscriptionInitiator;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import juegos.elementos.DetalleInforme;
@@ -69,10 +72,13 @@ public class AgenteLadron extends Agent {
 
     private int condenaAcumulada = 0;
 
+    private Map<String, InformarPartidaSubscribe> subscribes;
+
     @Override
     protected void setup() {
         //Inicialización de las variables del agente   
         mensajesPendientes = new ArrayList();
+        subscribes = new HashMap<>();
 
         DFAgentDescription dfd = new DFAgentDescription();
         ServiceDescription sd = new ServiceDescription();
@@ -128,7 +134,13 @@ public class AgenteLadron extends Agent {
         } catch (FIPAException fe) {
             fe.printStackTrace();
         }
-        //Liberación de recursos, incluido el GUI
+
+        Iterator<Map.Entry<String, InformarPartidaSubscribe>> entries = subscribes.entrySet().iterator();
+        while (entries.hasNext()) {
+            Map.Entry<String, InformarPartidaSubscribe> entry = entries.next();
+            entry.getValue().desRegistrarse();
+        }
+
         //Despedida
         System.out.println("Finaliza la ejecución del agente: " + this.getName());
     }
@@ -191,6 +203,8 @@ public class AgenteLadron extends Agent {
 
     private class InformarPartidaSubscribe extends SubscriptionInitiator {
 
+        private AID sender;
+
         public InformarPartidaSubscribe(Agent agente, ACLMessage mensaje) {
             super(agente, mensaje);
         }
@@ -199,6 +213,7 @@ public class AgenteLadron extends Agent {
         @Override
         protected void handleAgree(ACLMessage inform) {
             mensajesPendientes.add("Mi subscripcion a la plataforma ha sido aceptada");
+            this.sender = inform.getSender();
         }
 
         // Maneja la respuesta en caso que rechace: REFUSE
@@ -230,6 +245,14 @@ public class AgenteLadron extends Agent {
                     mensajesPendientes.add("Ha habido un error:\n  " + err.getDetalle());
                 }
             }
+        }
+
+        public void desRegistrarse() {
+            //Enviamos la cancelación de la suscripcion
+            this.cancel(sender, false);
+
+            //Comprobamos que se ha cancelado correctamente
+            this.cancellationCompleted(sender);
         }
 
         //Maneja la respuesta en caso de fallo: FAILURE
@@ -274,27 +297,29 @@ public class AgenteLadron extends Agent {
                 Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
             }
 
-            ///////////////////////////////////////////////////
-            InformarPartida inf = new InformarPartida(jugador);
-            ACLMessage mensaje = new ACLMessage(ACLMessage.SUBSCRIBE);
-            mensaje.setProtocol(FIPANames.InteractionProtocol.FIPA_SUBSCRIBE);
-            mensaje.setSender(this.myAgent.getAID());
-            mensaje.setLanguage(codec.getName());
-            mensaje.setOntology(ontologia.getName());
-            try {
-                Action action = new Action(getAID(), inf);
-                manager.fillContent(mensaje, action);
-            } catch (Codec.CodecException | OntologyException ex) {
-                Logger.getLogger(AgentePolicia.class.getName()).log(Level.SEVERE, null, ex);
+            if (!subscribes.containsKey(propuesta.getSender().getName())) {
+                InformarPartida inf = new InformarPartida(jugador);
+                ACLMessage mensaje = new ACLMessage(ACLMessage.SUBSCRIBE);
+                mensaje.setProtocol(FIPANames.InteractionProtocol.FIPA_SUBSCRIBE);
+                mensaje.setSender(this.myAgent.getAID());
+                mensaje.setLanguage(codec.getName());
+                mensaje.setOntology(ontologia.getName());
+                mensaje.addReceiver(propuesta.getSender());
+                try {
+                    Action action = new Action(getAID(), inf);
+                    manager.fillContent(mensaje, action);
+                } catch (Codec.CodecException | OntologyException ex) {
+                    Logger.getLogger(AgentePolicia.class.getName()).log(Level.SEVERE, null, ex);
+                }
+
+                InformarPartidaSubscribe tarea = new InformarPartidaSubscribe(this.myAgent, mensaje);
+                subscribes.put(propuesta.getSender().getName(), tarea);
+
+                addBehaviour(tarea);
+            } else {
+                System.out.println("Ya estaba jugando");
             }
 
-            //Se añade el destinatario del mensaje
-            AID id = new AID();
-            id.setLocalName(OntologiaDilemaPrisionero.REGISTRO_POLICIA);
-            mensaje.addReceiver(id);
-
-            //ME REGISTRO AL SUBSCRIBE
-            addBehaviour(new InformarPartidaSubscribe(this.myAgent, mensaje));
             return agree;
         }
     }
