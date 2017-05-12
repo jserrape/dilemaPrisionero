@@ -145,6 +145,9 @@ public class AgenteLadron extends Agent {
         System.out.println("Finaliza la ejecución del agente: " + this.getName());
     }
 
+    /**
+     * Tarea que busca agentes consola por donde se mostrarán los mensajes de mensajesPendientes
+     */
     public class TareaBuscarConsola extends TickerBehaviour {
 
         //Se buscarán consolas 
@@ -175,6 +178,9 @@ public class AgenteLadron extends Agent {
         }
     }
 
+    /**
+     * Tarea que se encarga de enviar los mensajes de mensajesPendientes a las consolas encontradas
+     */
     public class TareaEnvioConsola extends TickerBehaviour {
 
         //Tarea de ejemplo que se repite cada 10 segundos
