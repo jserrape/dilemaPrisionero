@@ -34,7 +34,6 @@ import jade.domain.FIPAException;
 import jade.domain.FIPANames;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
-import jade.lang.acl.UnreadableException;
 import jade.proto.ContractNetResponder;
 import jade.proto.ProposeResponder;
 import jade.proto.SubscriptionInitiator;
@@ -151,6 +150,12 @@ public class AgenteLadron extends Agent {
     public class TareaBuscarConsola extends TickerBehaviour {
 
         //Se buscarán consolas 
+
+        /**
+         * constructor para la tarea
+         * @param a Agente
+         * @param period tiempo 
+         */
         public TareaBuscarConsola(Agent a, long period) {
             super(a, period);
         }
