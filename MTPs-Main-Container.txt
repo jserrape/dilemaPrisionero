@@ -1,1 +1,1 @@
-http://L4PC108:7778/acc
+http://L2pc:7778/acc

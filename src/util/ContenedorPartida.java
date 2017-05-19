@@ -63,4 +63,10 @@ public class ContenedorPartida {
     public void setRespuestaAnterior(String respA) {
         this.miRespuestaAnterior = respA;
     }
+//    
+//    public String anadirCondena(int anios){
+//        conde
+//    }
+    
+    
 }
