@@ -49,6 +49,8 @@ import juegos.elementos.InformarPartida;
 import juegos.elementos.Jugador;
 import juegos.elementos.Partida;
 import juegos.elementos.PartidaAceptada;
+import static util.Constantes.PRIMERO;
+import static util.Constantes.SEGUNDO;
 import util.ContenedorPartida;
 
 /**
@@ -304,7 +306,7 @@ public class AgenteLadron extends Agent {
 
             ContenedorPartida cont = new ContenedorPartida(p, p.getIdPartida(), pp.getCondiciones());
             partidas.put(p.getIdPartida(), cont);
-            
+
             Jugador j = new Jugador(this.myAgent.getLocalName(), this.myAgent.getAID());
             PartidaAceptada pa = new PartidaAceptada(p, j);
 
@@ -318,25 +320,25 @@ public class AgenteLadron extends Agent {
                 Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
             }
 
-                InformarPartida inf = new InformarPartida(jugador);
-                ACLMessage mensaje = new ACLMessage(ACLMessage.SUBSCRIBE);
-                mensaje.setProtocol(FIPANames.InteractionProtocol.FIPA_SUBSCRIBE);
-                mensaje.setSender(this.myAgent.getAID());
-                mensaje.setLanguage(codec.getName());
-                mensaje.setOntology(ontologia.getName());
-                mensaje.addReceiver(propuesta.getSender());
-                try {
-                    Action action = new Action(getAID(), inf);
-                    manager.fillContent(mensaje, action);
-                } catch (Codec.CodecException | OntologyException ex) {
-                    Logger.getLogger(AgentePolicia.class.getName()).log(Level.SEVERE, null, ex);
-                }
+            InformarPartida inf = new InformarPartida(jugador);
+            ACLMessage mensaje = new ACLMessage(ACLMessage.SUBSCRIBE);
+            mensaje.setProtocol(FIPANames.InteractionProtocol.FIPA_SUBSCRIBE);
+            mensaje.setSender(this.myAgent.getAID());
+            mensaje.setLanguage(codec.getName());
+            mensaje.setOntology(ontologia.getName());
+            mensaje.addReceiver(propuesta.getSender());
+            try {
+                Action action = new Action(getAID(), inf);
+                manager.fillContent(mensaje, action);
+            } catch (Codec.CodecException | OntologyException ex) {
+                Logger.getLogger(AgentePolicia.class.getName()).log(Level.SEVERE, null, ex);
+            }
 
-                InformarPartidaSubscribe tarea = new InformarPartidaSubscribe(this.myAgent, mensaje);
+            InformarPartidaSubscribe tarea = new InformarPartidaSubscribe(this.myAgent, mensaje);
 
-                subscribes.put(propuesta.getSender().getName(), tarea);
+            subscribes.put(propuesta.getSender().getName(), tarea);
 
-                addBehaviour(tarea);
+            addBehaviour(tarea);
 
             return agree;
         }
@@ -358,6 +360,12 @@ public class AgenteLadron extends Agent {
                 entJug = (EntregarJugada) ac.getAction();
             } catch (Codec.CodecException | OntologyException ex) {
                 Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+            if (((Jugador) entJug.getJugadores().get(PRIMERO)).getNombre() != AgenteLadron.class.getName()) {
+                mensajesPendientes.add("mi rival es: " + ((Jugador) entJug.getJugadores().get(PRIMERO)).getNombre());
+            } else {
+                mensajesPendientes.add("mi rival es: " + ((Jugador) entJug.getJugadores().get(SEGUNDO)).getNombre());
             }
             //mensajesPendientes.add("Me ha llegado una peticion de ronda para la partida con id=" + entJug.getPartida().getIdPartida());
             //De lo anterior leo quien es mi oponente
@@ -409,7 +417,6 @@ public class AgenteLadron extends Agent {
 //            
 //            condenaAcumulada += resultado.getCondenaRecibida();
 //            mensajesPendientes.add("Me ha llegado un ResultadoJugada, me han caido: " + resultado.getCondenaRecibida() + " años, llevo " + condenaAcumulada);
-
             ACLMessage inform = accept.createReply();
             inform.setPerformative(ACLMessage.INFORM);
             return inform;
