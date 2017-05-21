@@ -64,7 +64,6 @@ public class AgenteLadron extends Agent {
     // La ontología que utilizará el agente
     private Ontology ontologia;
 
-    private Partida partida;
     private Jugador jugador;
     private Map<String, ContenedorPartida> partidas;
 
@@ -72,8 +71,6 @@ public class AgenteLadron extends Agent {
     private ArrayList<String> mensajesPendientes;
 
     private ContentManager manager = (ContentManager) getContentManager();
-
-    private int condenaAcumulada = 0;
 
     private Map<String, InformarPartidaSubscribe> subscribes;
 
@@ -136,13 +133,6 @@ public class AgenteLadron extends Agent {
         try {
             DFService.deregister(this);
         } catch (FIPAException fe) {
-            fe.printStackTrace();
-        }
-
-        Iterator<Map.Entry<String, InformarPartidaSubscribe>> entries = subscribes.entrySet().iterator();
-        while (entries.hasNext()) {
-            Map.Entry<String, InformarPartidaSubscribe> entry = entries.next();
-            entry.getValue().desRegistrarse();
         }
 
         //Despedida
@@ -367,8 +357,7 @@ public class AgenteLadron extends Agent {
             } else {
                 mensajesPendientes.add("mi rival es: " + ((Jugador) entJug.getJugadores().get(SEGUNDO)).getNombre());
             }
-            //mensajesPendientes.add("Me ha llegado una peticion de ronda para la partida con id=" + entJug.getPartida().getIdPartida());
-            //De lo anterior leo quien es mi oponente
+
             if (partidas.containsKey(entJug.getPartida().getIdPartida())) {
                 ContenedorPartida contenedor = partidas.get(entJug.getPartida().getIdPartida());
                 int numero = ((int) (Math.random() * 1000)) % 2;
@@ -414,9 +403,6 @@ public class AgenteLadron extends Agent {
                 Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
             }
 
-//            
-//            condenaAcumulada += resultado.getCondenaRecibida();
-//            mensajesPendientes.add("Me ha llegado un ResultadoJugada, me han caido: " + resultado.getCondenaRecibida() + " años, llevo " + condenaAcumulada);
             ACLMessage inform = accept.createReply();
             inform.setPerformative(ACLMessage.INFORM);
             return inform;
