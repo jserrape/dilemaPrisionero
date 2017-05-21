@@ -71,8 +71,6 @@ public class AgenteLadron extends Agent {
 
     private final ContentManager manager = (ContentManager) getContentManager();
 
-    private int condenaAcumulada = 0;
-
     private Map<String, InformarPartidaSubscribe> subscribes;
 
     @Override
@@ -95,7 +93,6 @@ public class AgenteLadron extends Agent {
             manager.registerLanguage(codec);
             manager.registerOntology(ontologia);
         } catch (Exception e) {
-            e.printStackTrace();
         }
 
         //registro ontologia
@@ -108,7 +105,6 @@ public class AgenteLadron extends Agent {
             dfd.addServices(sd);
             DFService.register(this, dfd);
         } catch (FIPAException fe) {
-            fe.printStackTrace();
         }
 
         mensajesPendientes.add("ME HE CONECTADO A LA PLATAFORMA");
@@ -134,7 +130,6 @@ public class AgenteLadron extends Agent {
         try {
             DFService.deregister(this);
         } catch (FIPAException fe) {
-            fe.printStackTrace();
         }
 
         Iterator<Map.Entry<String, InformarPartidaSubscribe>> entries = subscribes.entrySet().iterator();
@@ -244,17 +239,21 @@ public class AgenteLadron extends Agent {
             mensajesPendientes.add("Me ha llegado un subscribe");
 
             DetalleInforme detalle = null;
+
             try {
                 detalle = (DetalleInforme) manager.extractContent(inform);
-            } catch (Codec.CodecException ex) {
-                Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
-            } catch (OntologyException ex) {
+            } catch (Codec.CodecException | OntologyException ex) {
                 Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
             }
 
             if (detalle.getDetalle() instanceof GanadorPartida) {
                 GanadorPartida gp = (GanadorPartida) detalle.getDetalle();
                 mensajesPendientes.add("El ganador de la partida ha sido " + gp.getJugador().getNombre());
+                if (partidasIniciadas.containsKey(detalle.getPartida().getIdPartida())) {
+                    ContenedorPartida contenedor = partidasIniciadas.get(detalle.getPartida().getIdPartida());
+                    contenedor.mostrarCondenaFinal();
+                    contenedor.crearFichero();
+                }
             } else {
                 if (detalle.getDetalle() instanceof juegos.elementos.Error) {
                     juegos.elementos.Error err = (juegos.elementos.Error) detalle.getDetalle();
@@ -314,7 +313,7 @@ public class AgenteLadron extends Agent {
             }
 
             //Almaceno la partida
-            ContenedorPartida contenedor = new ContenedorPartida(p, p.getIdPartida(), pp.getCondiciones(), this.myAgent.getLocalName());
+            ContenedorPartida contenedor = new ContenedorPartida(p.getIdPartida(), pp.getCondiciones(), this.myAgent.getLocalName());
             partidasIniciadas.put(p.getIdPartida(), contenedor);
 
             //Hacer una suscripcion al policia en caso de no tenerla ya hecha
@@ -357,7 +356,7 @@ public class AgenteLadron extends Agent {
             try {
                 ac = (Action) manager.extractContent(cfp);
                 entJug = (EntregarJugada) ac.getAction();
-                jugadores = entJug.getJugadores(); 
+                jugadores = entJug.getJugadores();
             } catch (Codec.CodecException | OntologyException ex) {
                 Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -395,8 +394,10 @@ public class AgenteLadron extends Agent {
                 Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
             }
 
-            condenaAcumulada += resultado.getCondenaRecibida();
-            mensajesPendientes.add("Me ha llegado un ResultadoJugada, me han caido: " + resultado.getCondenaRecibida() + " años, llevo " + condenaAcumulada);
+            if (partidasIniciadas.containsKey(resultado.getPartida().getIdPartida())) {
+                ContenedorPartida contenedor = partidasIniciadas.get(resultado.getPartida().getIdPartida());
+                contenedor.nuevaJugadaOponente(resultado);
+            }
 
             ACLMessage inform = accept.createReply();
             inform.setPerformative(ACLMessage.INFORM);
