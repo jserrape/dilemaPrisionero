@@ -6,12 +6,14 @@
 package agentes;
 
 import dilemaPrisionero.OntologiaDilemaPrisionero;
+import dilemaPrisionero.elementos.Condenas;
 import dilemaPrisionero.elementos.DilemaPrisionero;
 import dilemaPrisionero.elementos.ProponerPartida;
 import dilemaPrisionero.elementos.EntregarJugada;
 import dilemaPrisionero.elementos.Jugada;
 import dilemaPrisionero.elementos.JugadaEntregada;
 import dilemaPrisionero.elementos.ResultadoJugada;
+import gui.ClasificacionJFrame;
 import gui.DilemaPrisioneroJFrame;
 import gui.ErrorJFrame;
 import juegos.elementos.Partida;
@@ -43,10 +45,12 @@ import jade.proto.ProposeInitiator;
 import jade.proto.SubscriptionResponder;
 import jade.proto.SubscriptionResponder.Subscription;
 import jade.wrapper.ControllerException;
+import jade.wrapper.StaleProxyException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -58,7 +62,6 @@ import juegos.elementos.DetalleInforme;
 import juegos.elementos.GanadorPartida;
 import juegos.elementos.PartidaAceptada;
 import static util.Constantes.BUSCAR_AGENTES;
-import static util.Constantes.CASTIGO;
 import static util.Constantes.CONDENA_INICIAL;
 import static util.Constantes.JUGADOR_ABANDONO;
 import static util.Constantes.MINIMO_LADRONES;
@@ -67,10 +70,8 @@ import static util.Constantes.NOMBRE_JUGADOR_IMPAR;
 import static util.Constantes.PRIMERA_RONDA;
 import static util.Constantes.PRIMERO;
 import static util.Constantes.PRIMO;
-import static util.Constantes.RECOMPENSA;
 import static util.Constantes.RETARDO_PRESENTACION;
 import static util.Constantes.SEGUNDO;
-import static util.Constantes.TENTACION;
 import static util.Constantes.TIME_OUT;
 import util.ElmPresentacion;
 import util.GestorSuscripciones;
@@ -100,7 +101,8 @@ public class AgentePolicia extends Agent {
     // Variables
     private DilemaPrisioneroJFrame myGUI;
     private ErrorJFrame errorGUI;
-    private AID[] agentesLadron = null;
+    private ClasificacionJFrame clasificacionGUI;
+    private HashSet<AID> agentesLadron;
     private Map<String, RegistroPartida> infoPartidas;
     private int partidasIniciadas = 0;
     private String idPartida;
@@ -115,9 +117,11 @@ public class AgentePolicia extends Agent {
         myGUI.setVisible(true);
         errorGUI = new ErrorJFrame(this);
         errorGUI.setVisible(true);
+        clasificacionGUI = new ClasificacionJFrame(this);
         mensajesPendientes = new ArrayList();
         presentacionPartidas = new ArrayList();
         infoPartidas = new HashMap();
+        agentesLadron = new HashSet();
         gestor = new GestorSuscripciones();
         
         // Regisro de la Ontología
@@ -149,11 +153,24 @@ public class AgentePolicia extends Agent {
     protected void takeDown() {
         //Se liberan los recuros y se despide
         myGUI.dispose();
-        //errorGUI.dispose();
+        errorGUI.dispose();
+        clasificacionGUI.dispose();
         for (RegistroPartida registroPartida : infoPartidas.values()) {
             registroPartida.getPartidaGUI().dispose();
         }
         System.out.println("Finaliza la ejecución de " + this.getName());
+    }
+    
+    /**
+     * Agentes que no han contestado a la propuesta de partida
+     */
+    private void noHanContestado() {
+        if (!agentesLadron.isEmpty()) {
+            for (AID agente : agentesLadron) {
+                errorGUI.presentarError("El agente: " + agente.getLocalName() +
+                        " no ha respondido\n");
+            }  
+        }
     }
     
     /**
@@ -168,8 +185,19 @@ public class AgentePolicia extends Agent {
         // o conseguimos que sean pares
         jugadoresPartida = partida.getClasificacion();
         if ( jugadoresPartida.size() % 2 != 0) {
-            // Eliminamos al primer jugador
-            jugadoresPartida.remove(PRIMERO);
+            // jugadores impares, creamos un jugador adicional
+            try {
+            this.getContainerController().createNewAgent(NOMBRE_AGENTE_IMPAR,
+                    "agentes.AgenteLadronImpar", null).start();
+            } catch (StaleProxyException ex) {
+                Logger.getLogger(AgentePolicia.class.getName()).log(Level.SEVERE, null, ex);
+            }
+            
+            AID agenteImpar = new AID(NOMBRE_AGENTE_IMPAR, AID.ISLOCALNAME);
+            Jugador jugadorImpar = new Jugador(NOMBRE_JUGADOR_IMPAR, agenteImpar);
+            jugadoresPartida.add(new ResultadoJugador(jugadorImpar,
+                                        CONDENA_INICIAL));
+            errorGUI.presentarError("Creado jugador Impar " + jugadorImpar);
         }
             
         partida.setCancelada(jugadoresPartida.size() < MINIMO_LADRONES);
@@ -201,6 +229,16 @@ public class AgentePolicia extends Agent {
         resultado.setFinPartida(finPartida);
         presentacionPartidas.add(resultado);
     }  
+    
+    /**
+     * Presentamos la clasificación de los agentes que han jugado partidas
+     * con el policía
+     * @param idPartida 
+     */
+    public void presentarClasificacion( String idPartida ) {
+        clasificacionGUI.presentarClasificacion(
+                        infoPartidas.get(idPartida).getClasificacion());
+    }
     
     /**
      * Se añade una nueva partida con los parámetros regogicos del GUI
@@ -283,25 +321,28 @@ public class AgentePolicia extends Agent {
      * @param idPartida identificador de la partida
      */
     private void contabilizaAbandono ( String idPartida ) {
+        int abandonos = 0;
+        
         List<ResultadoJugador> jugadores = infoPartidas.get(idPartida).getClasificacion();
         for (ResultadoJugador jugador : jugadores) {
             if ( !jugador.isActivo() ) {
                 errorGUI.presentarError("El jugador: " + jugador.getJugador().getNombre() 
                         + JUGADOR_ABANDONO + idPartida);
                 jugador.setTiempoCondena(jugador.getTiempoCondena() + PRIMO);
+                abandonos++;
+            } else {
+                // Inicializamos el estado para la siguiente ronda de todos los
+                // jugadores
+                jugador.setActivo(false);
             }
         }
+        
+        // Si hay abandonos cancelamos la partida
+        if (abandonos > 0) {
+            errorGUI.presentarError("Han abandonado: " + abandonos + " jugadores");
+            infoPartidas.get(idPartida).setCancelada(true);
+        }
     } 
-    
-    /**
-     * Comprobamos que el elemento JugadaEntregada contenga la información necesaria
-     * @param jugada elemento que representa el movimiento del jugador en este turno
-     * @return true si es correcto, false en otro caso
-     */
-    private boolean jugadaValidada ( JugadaEntregada jugada ) {
-        return ( (jugada.getJugador().getNombre() != null) && 
-                 (jugada.getRespuesta().getRespuesta() != null));
-    }
     
     /**
      * Se calcula la pena que obtendrá cada jugador en una ronda del turno de juego
@@ -314,14 +355,17 @@ public class AgentePolicia extends Agent {
     private boolean calcularResultado( String idPartida, List<JugadaEntregada> jugadas, Vector respuestas) {
         ACLMessage msg;
         ResultadoJugada resultado;
+        Condenas condenas;
         
         RegistroPartida partida = infoPartidas.get(idPartida);
+        condenas = partida.getJuego().getTiempoCondena();
         List<ResultadoJugador> listaJugadores = partida.getClasificacion();
         partida.aumentarResultados(); // tenemos un resultado nuevo que calcular
         if ( jugadas.size() == 1 ) { // un jugador no ha dado su movimiento
             Jugador jugador = jugadas.get(PRIMERO).getJugador();
-            actualizaCondena(listaJugadores, jugador, TENTACION);
-            resultado = new ResultadoJugada(jugadas.get(PRIMERO).getPartida(), TENTACION);
+            actualizaCondena(listaJugadores, jugador, condenas.getTentacion());
+            resultado = new ResultadoJugada(jugadas.get(PRIMERO).getPartida(), 
+                                            condenas.getTentacion());
             msg = (ACLMessage) respuestas.get(PRIMERO);
             
             try {
@@ -339,8 +383,9 @@ public class AgentePolicia extends Agent {
             if ( (jugada1.getRespuesta().compareTo(OntologiaDilemaPrisionero.HABLAR) == 0) &&
                     (jugada2.getRespuesta().compareTo(OntologiaDilemaPrisionero.HABLAR) == 0) ) {
                 // Ninguno de los jugadores colabora
-                actualizaCondena( listaJugadores, jugador1, CASTIGO);
-                resultado = new ResultadoJugada(jugadas.get(PRIMERO).getPartida(), CASTIGO);
+                actualizaCondena( listaJugadores, jugador1, condenas.getCastigo());
+                resultado = new ResultadoJugada(jugadas.get(PRIMERO).getPartida(), 
+                                                condenas.getCastigo());
                 msg = (ACLMessage) respuestas.get(PRIMERO);
                 
                 try {
@@ -351,8 +396,9 @@ public class AgentePolicia extends Agent {
                 
                 respuestas.set(PRIMERO, msg);
                 
-                actualizaCondena( listaJugadores, jugador2, CASTIGO);
-                resultado = new ResultadoJugada(jugadas.get(SEGUNDO).getPartida(), CASTIGO);
+                actualizaCondena( listaJugadores, jugador2, condenas.getCastigo());
+                resultado = new ResultadoJugada(jugadas.get(SEGUNDO).getPartida(), 
+                                                    condenas.getCastigo());
                 msg = (ACLMessage) respuestas.get(SEGUNDO);
                 
                 try {
@@ -365,8 +411,9 @@ public class AgentePolicia extends Agent {
             } else if ( (jugada1.getRespuesta().compareTo(OntologiaDilemaPrisionero.HABLAR) == 0) &&
                     (jugada2.getRespuesta().compareTo(OntologiaDilemaPrisionero.CALLAR) == 0) ) {
                 // El jugador 1 traiciona al jugador 2
-                actualizaCondena( listaJugadores, jugador1, TENTACION);
-                resultado = new ResultadoJugada(jugadas.get(PRIMERO).getPartida(), TENTACION);
+                actualizaCondena( listaJugadores, jugador1, condenas.getTentacion());
+                resultado = new ResultadoJugada(jugadas.get(PRIMERO).getPartida(), 
+                                            condenas.getTentacion());
                 msg = (ACLMessage) respuestas.get(PRIMERO);
                 
                 try {
@@ -377,8 +424,9 @@ public class AgentePolicia extends Agent {
                 
                 respuestas.set(PRIMERO, msg);
                 
-                actualizaCondena( listaJugadores, jugador2, PRIMO);
-                resultado = new ResultadoJugada(jugadas.get(SEGUNDO).getPartida(), PRIMO);
+                actualizaCondena( listaJugadores, jugador2, condenas.getPrimo());
+                resultado = new ResultadoJugada(jugadas.get(SEGUNDO).getPartida(), 
+                                                        condenas.getPrimo());
                 msg = (ACLMessage) respuestas.get(SEGUNDO);
                 
                 try {
@@ -391,8 +439,9 @@ public class AgentePolicia extends Agent {
             } else if ( (jugada1.getRespuesta().compareTo(OntologiaDilemaPrisionero.CALLAR) == 0) &&
                     (jugada2.getRespuesta().compareTo(OntologiaDilemaPrisionero.HABLAR) == 0) ) {
                 // Jugador 2 traiciona al jugador 1
-                actualizaCondena( listaJugadores, jugador1, PRIMO);
-                resultado = new ResultadoJugada(jugadas.get(PRIMERO).getPartida(), PRIMO);
+                actualizaCondena( listaJugadores, jugador1, condenas.getPrimo());
+                resultado = new ResultadoJugada(jugadas.get(PRIMERO).getPartida(), 
+                                                        condenas.getPrimo());
                 msg = (ACLMessage) respuestas.get(PRIMERO);
                 
                 try {
@@ -403,8 +452,9 @@ public class AgentePolicia extends Agent {
                 
                 respuestas.set(PRIMERO, msg);
                 
-                actualizaCondena( listaJugadores, jugador2, TENTACION);
-                resultado = new ResultadoJugada(jugadas.get(SEGUNDO).getPartida(), TENTACION);
+                actualizaCondena( listaJugadores, jugador2, condenas.getTentacion());
+                resultado = new ResultadoJugada(jugadas.get(SEGUNDO).getPartida(), 
+                                                    condenas.getTentacion());
                 msg = (ACLMessage) respuestas.get(SEGUNDO);
                 
                 try {
@@ -416,8 +466,9 @@ public class AgentePolicia extends Agent {
                 respuestas.set(SEGUNDO, msg);
             } else {
                 // Ambos jugadores colaboran
-                actualizaCondena( listaJugadores, jugador1, RECOMPENSA);
-                resultado = new ResultadoJugada(jugadas.get(PRIMERO).getPartida(), RECOMPENSA);
+                actualizaCondena( listaJugadores, jugador1, condenas.getRecompensa());
+                resultado = new ResultadoJugada(jugadas.get(PRIMERO).getPartida(), 
+                                            condenas.getRecompensa());
                 msg = (ACLMessage) respuestas.get(PRIMERO);
                 
                 try {
@@ -428,8 +479,9 @@ public class AgentePolicia extends Agent {
                 
                 respuestas.set(PRIMERO, msg);
                 
-                actualizaCondena( listaJugadores, jugador2, RECOMPENSA);
-                resultado = new ResultadoJugada(jugadas.get(SEGUNDO).getPartida(), RECOMPENSA);
+                actualizaCondena( listaJugadores, jugador2, condenas.getRecompensa());
+                resultado = new ResultadoJugada(jugadas.get(SEGUNDO).getPartida(), 
+                                                condenas.getRecompensa());
                 msg = (ACLMessage) respuestas.get(SEGUNDO);
                 
                 try {
@@ -457,7 +509,7 @@ public class AgentePolicia extends Agent {
         @Override
         public void action() {
             
-            if (agentesLadron != null) {
+            if (!agentesLadron.isEmpty()) {
                 //Creamos el mensaje para lanzar el protocolo Propose
                 ACLMessage msg = new ACLMessage(ACLMessage.PROPOSE);
                 msg.setProtocol(FIPANames.InteractionProtocol.FIPA_PROPOSE);
@@ -510,6 +562,13 @@ public class AgentePolicia extends Agent {
         }
 
         @Override
+        protected void handleOutOfSequence(ACLMessage msg) {
+             // Ha llegado un mensaje fuera de la secuencia del protocolo
+            errorGUI.presentarError("El agente: " + msg.getSender().getName() +
+                    "\nha enviado el siguiente mensaje: " + msg.getContent());
+        }
+        
+        @Override
         protected void handleAllResponses(Vector responses) {
         
             String rechazos = "Agentes que han rechazado la partida: " + idPartida + "\n";
@@ -527,16 +586,11 @@ public class AgentePolicia extends Agent {
                     try {
                         PartidaAceptada partidaAceptada = (PartidaAceptada) manager.extractContent(msg);
                         Jugador jugador = partidaAceptada.getJugador();
-                        if ( jugador != null ) 
-                            jugadoresPartida.add(new ResultadoJugador(jugador, CONDENA_INICIAL));
-                        else 
-                            errorGUI.presentarError("El agente: " + msg.getSender().getName() + 
-                                "\nno ha enviado el contenido correcto de PartidaAceptada" +
-                                        "\npara la partida " + idPartida);
-                    } catch (Exception ex) {
+                        jugadoresPartida.add(new ResultadoJugador(jugador, CONDENA_INICIAL));
+                    } catch (Codec.CodecException | OntologyException ex) {
                         Logger.getLogger(AgentePolicia.class.getName()).log(Level.SEVERE, null, ex);
                         errorGUI.presentarError("El agente: " + msg.getSender().getName() + 
-                                "\nno ha enviado el contenido correcto de PartidaAceptada" +
+                                "\nno ha enviado el contenido correcto: " + msg.getContent() +
                                 "\npara la partida " + idPartida);
                     }
                 } else {
@@ -545,7 +599,14 @@ public class AgentePolicia extends Agent {
                     rechazos = rechazos + "El agente: " + msg.getSender().getLocalName()
                         + " ha rechazado el juego\n";
                 }
+                
+                // Contabilizamos los agentes que han contestado, lo que quedan
+                // no han contestado
+                agentesLadron.remove(msg.getSender());
             }
+            
+            
+            noHanContestado();
             
             if (numRechazos > 0)
                 mensajesPendientes.add(rechazos);
@@ -624,6 +685,13 @@ public class AgentePolicia extends Agent {
         }
 
         @Override
+        protected void handleOutOfSequence(ACLMessage msg) {
+            // Ha llegado un mensaje fuera de la secuencia del protocolo
+            errorGUI.presentarError("El agente: " + msg.getSender().getName() +
+                    "\nha enviado el siguiente mensaje: " + msg.getContent());
+        }
+
+        @Override
         protected void handleAllResponses(Vector responses, Vector acceptances) {
             String resultado = "";
             JugadaEntregada jugada = null;
@@ -636,22 +704,17 @@ public class AgentePolicia extends Agent {
                 
                 try {
                     jugada = (JugadaEntregada) manager.extractContent(msg);
-                    if ( jugadaValidada(jugada) ) {
-                        jugadas.add(jugada);
-                        resultado = resultado + "Movimiento de la partida: " + jugada.getPartida().getIdPartida()
+                    jugadas.add(jugada);
+                    resultado = resultado + "Movimiento de la partida: " + jugada.getPartida().getIdPartida()
                             + "\ndel jugador: " + jugada.getJugador().getNombre()
                             + "\ny la jugada: " + jugada.getRespuesta().getRespuesta() + "\n";
-                        respuesta = msg.createReply();
-                        respuesta.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
-                        acceptances.add(respuesta);
-                    } else {
-                        errorGUI.presentarError("El agente: " + msg.getSender().getName() 
-                            + "\nno ha enviado una Jugada correcta");
-                    }
-                } catch (Exception ex) {
+                    respuesta = msg.createReply();
+                    respuesta.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
+                    acceptances.add(respuesta);
+                } catch (Codec.CodecException | OntologyException ex) {
                     Logger.getLogger(AgentePolicia.class.getName()).log(Level.SEVERE, null, ex);
                     errorGUI.presentarError("El agente: " + msg.getSender().getName() 
-                            + "\nno ha enviado una Jugada correcta");
+                            + "\nno ha enviado una Jugada correcta: " + msg.getContent());
                 }
             }
             
@@ -781,6 +844,9 @@ public class AgentePolicia extends Agent {
                 if (suscripcion != null ) {
                     // Si hay un jugador impar no tine suscripción
                     suscripcion.notify(msgGanador);
+                    mensajesPendientes.add("Envio INFORM al agente: \n" +
+                        jugadorPartida.getJugador().getNombre() +
+                        " FIN PARTIDA");
                 } else if (jugadorPartida.getJugador().getNombre().compareTo(NOMBRE_JUGADOR_IMPAR) == 0) {
                     try {
                         // Finaliza el agente impar su funcion
@@ -789,10 +855,6 @@ public class AgentePolicia extends Agent {
                         Logger.getLogger(AgentePolicia.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 }
-                        
-                mensajesPendientes.add("Envio INFORM al agente: \n" +
-                        jugadorPartida.getJugador().getNombre() +
-                        " FIN PARTIDA");
             }
         }
     }
@@ -864,13 +926,16 @@ public class AgentePolicia extends Agent {
             sd.setName(OntologiaDilemaPrisionero.REGISTRO_PRISIONERO);
             template.addServices(sd);
             
+            // Dejamos lista la estructura para los agentes ladrón que se 
+            // localicen
+            agentesLadron.clear();
+            
             try {
                 result = DFService.search(myAgent, template); 
                 if (result.length >= MINIMO_LADRONES) {
                     //System.out.println("Se han encontrado las siguientes agentes ladrón:");
-                    agentesLadron = new AID[result.length];
                     for (int i = 0; i < result.length; ++i) {
-                        agentesLadron[i] = result[i].getName();
+                        agentesLadron.add(result[i].getName());
 //                        System.out.println(agentesLadron[i].getName());
                     }
                     myGUI.activarNuevaPartida(result.length);
@@ -878,7 +943,7 @@ public class AgentePolicia extends Agent {
                 else {
 //                    System.out.println("No se han encontrado suficientes agentes ladrón:");
                     myGUI.anularNuevaPartida(result.length);
-                    agentesLadron = null;
+                    agentesLadron.clear();
                 } 
             }
             catch (FIPAException fe) {

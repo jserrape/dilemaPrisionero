@@ -16,6 +16,7 @@ import util.ElmPresentacion;
 public class PartidaJFrame extends javax.swing.JFrame {
     private final String idPartida;
     private final AgentePolicia myAgent;
+    private boolean finPresentacion;
 
     /**
      * Creates new form PartidaJFrame
@@ -28,13 +29,15 @@ public class PartidaJFrame extends javax.swing.JFrame {
         this.myAgent = agent;
         this.setTitle("Partida: " + idPartida);
         finPartida.setVisible(false);
+        finPresentacion = false;
     }
 
     public void presentarResultados(ElmPresentacion clasificacion, int rondaFinal) {
         this.setVisible(true);
         ronda.setText(Integer.toString(clasificacion.getRonda()));
         minimoRondas.setText(Integer.toString(rondaFinal));
-        finPartida.setVisible(clasificacion.isFinPartida());
+        finPresentacion = clasificacion.isFinPartida();
+        finPartida.setVisible(finPresentacion);
         
         // Limpiamos resultados anteriores
         agenteJugador.setText(null);
@@ -50,6 +53,11 @@ public class PartidaJFrame extends javax.swing.JFrame {
            nombreJugador.append((String) itNombres.next() + "\n");
            condena.append((String) itCondenas.next() + "\n");
         }
+        
+        // Presentamos la clasificación hasta el momento una vez
+        // finalizada la presentación de la partida
+        if ( finPresentacion )
+            myAgent.presentarClasificacion(idPartida);
     } 
     
     /**
@@ -155,7 +163,7 @@ public class PartidaJFrame extends javax.swing.JFrame {
                             .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                             .addComponent(ronda)))
                     .addComponent(finPartida))
-                .addContainerGap(38, Short.MAX_VALUE))
+                .addContainerGap(51, Short.MAX_VALUE))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -193,6 +201,8 @@ public class PartidaJFrame extends javax.swing.JFrame {
         // TODO add your handling code here:
         if (!myAgent.finPartida(idPartida))
             myAgent.cancelaPartida(idPartida);
+        if (finPresentacion)
+            this.setVisible(false);
     }//GEN-LAST:event_formWindowClosing
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

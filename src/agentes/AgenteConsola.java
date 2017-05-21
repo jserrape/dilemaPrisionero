@@ -55,6 +55,8 @@ public class AgenteConsola extends Agent {
         
         // Se añaden las tareas principales
        addBehaviour(new RecepcionMensajes());
+       
+       System.out.println("Se ha iniciado el agente: " + this.getName());
     }
     
     /**
