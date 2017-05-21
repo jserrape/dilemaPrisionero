@@ -13,31 +13,32 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Iterator;
 import juegos.elementos.Jugador;
-import juegos.elementos.Partida;
 
 /**
- *
- * @author Xenahort
+ * Objeto destinado a contener todo lo sucedido durante una ronda y generar respuesta a una peticion
+ * @author jcsp0003
  */
 public class ContenedorPartida {
 
     private final DilemaPrisionero condiciones;
     private final String id;
-
     private final String miNombre;
-
-    private int numeroTurnos;
-
     private String miRespuestaAnterior;
-
+    
+    private int numeroTurnos;
     private int condenaAcumulada;
 
     private final ArrayList<String> jugadasFichero;
 
+    /**
+     * Constructor parametrizado
+     * @param _id Identificador de la partida
+     * @param _condiciones Condenas de la partida
+     * @param _miNombre Nombre del agente ladron al que pertenece el contenedor
+     */
     public ContenedorPartida(String _id, DilemaPrisionero _condiciones, String _miNombre) {
         this.condenaAcumulada = 0;
         this.id = _id;
@@ -50,10 +51,17 @@ public class ContenedorPartida {
         this.jugadasFichero = new ArrayList();
     }
 
+    /**
+     * @return condenaAcumulada
+     */
     public String getCondena() {
         return Integer.toString(condenaAcumulada);
     }
 
+    /**
+     * Funcion para aumentar la condena recibida y añadir a una lista la jugada realizada por el oponente
+     * @param resultado condena recibida
+     */
     public void nuevaJugadaOponente(ResultadoJugada resultado) {
 
         if (this.miRespuestaAnterior.equals(OntologiaDilemaPrisionero.HABLAR) && resultado.getCondenaRecibida() == condiciones.getTiempoCondena().getCastigo()) {
@@ -74,10 +82,18 @@ public class ContenedorPartida {
         this.condenaAcumulada += resultado.getCondenaRecibida();
     }
 
+    /**
+     * Modifica la respuesta anterior de mi agente ladron
+     * @param respA Nueva respuesta del agente ladron
+     */
     public void setRespuestaAnterior(String respA) {
         this.miRespuestaAnterior = respA;
     }
 
+    /**
+     * Lee el rivar de la nueva ronda 
+     * @param jugadores Lista de los 2 jugadores que participan en la ronda
+     */
     public void insertarRival(List jugadores) {
         Iterator it = jugadores.iterator();
         Jugador jugador = (Jugador) it.next();
@@ -89,6 +105,10 @@ public class ContenedorPartida {
         }
     }
 
+    /**
+     * Recide si hablar o callar
+     * @return hablar o callar
+     */
     public String decidirAccion() {
         int numero = ((int) (Math.random() * 1000)) % 2;
         if (numero == 1) {
@@ -102,8 +122,11 @@ public class ContenedorPartida {
         }
     }
 
+    /**
+     * Crea un fichero con todo lo sucedido en la partida
+     */
     public void crearFichero() {
-        java.util.Date utilDate = new java.util.Date(); //fecha actual
+        java.util.Date utilDate = new java.util.Date(); 
         long lnMilisegundos = utilDate.getTime();
         java.sql.Date sqlDate = new java.sql.Date(lnMilisegundos);
         java.sql.Time sqlTime = new java.sql.Time(lnMilisegundos);
@@ -123,6 +146,9 @@ public class ContenedorPartida {
         }
     }
 
+    /**
+     * Muestra la condena recibida
+     */
     public void mostrarCondenaFinal() {
         System.out.println("Condena final del agente " + this.miNombre + " es de " + this.condenaAcumulada);
     }
