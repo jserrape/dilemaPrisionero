@@ -117,7 +117,7 @@ public class AgenteLadron extends Agent {
 
         //LEO LAS PROPOSICIONES DE PARTIDA
         MessageTemplate plantilla = ProposeResponder.createMessageTemplate(FIPANames.InteractionProtocol.FIPA_PROPOSE);
-        addBehaviour(new ResponderProposicionPartida(this, plantilla));
+        addBehaviour(new ProposicionPartida(this, plantilla));
 
         //Leo las rondas
         MessageTemplate template = ContractNetResponder.createMessageTemplate(FIPANames.InteractionProtocol.FIPA_CONTRACT_NET);
@@ -244,14 +244,14 @@ public class AgenteLadron extends Agent {
     /**
      * Tarea para la recepcion de propuestas de partida
      */
-    private class ResponderProposicionPartida extends ProposeResponder {
+    private class ProposicionPartida extends ProposeResponder {
 
         /**
          * Constructor parametrizado
          * @param agente Agente padre
          * @param plantilla Plantilla de mensaje
          */
-        public ResponderProposicionPartida(Agent agente, MessageTemplate plantilla) {
+        public ProposicionPartida(Agent agente, MessageTemplate plantilla) {
             super(agente, plantilla);
         }
 
@@ -287,7 +287,7 @@ public class AgenteLadron extends Agent {
             }
 
             //Almaceno la partida
-            ContenedorPartida contenedor = new ContenedorPartida(p.getIdPartida(), pp.getCondiciones(), this.myAgent.getLocalName());
+            ContenedorPartida contenedor = new ContenedorPartida(pp.getCondiciones(), this.myAgent.getLocalName(),mensajesPendientes);
             partidasIniciadas.put(p.getIdPartida(), contenedor);
 
             //Hacer una suscripcion al policia en caso de no tenerla ya hecha
