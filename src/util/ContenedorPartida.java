@@ -128,21 +128,23 @@ public class ContenedorPartida {
     public String decidirAccion() {
 
         if (rondas.get(oponenteActual).isEmpty() || rondas.get(oponenteActual).size() == 1) { //Es la primera/segunda ronda contra este oponente y no tengo informacion, mejor canto
-            setRespuestaAnterior(OntologiaDilemaPrisionero.HABLAR);
-            jugadasFichero.add(OntologiaDilemaPrisionero.HABLAR);
-            return OntologiaDilemaPrisionero.HABLAR;
-        }
-
-
-        int numero = ((int) (Math.random() * 1000)) % 2;
-        if (numero == 1) {
-            setRespuestaAnterior(OntologiaDilemaPrisionero.HABLAR);
-            jugadasFichero.add(OntologiaDilemaPrisionero.HABLAR);
-            return OntologiaDilemaPrisionero.HABLAR;
-        } else {
             setRespuestaAnterior(OntologiaDilemaPrisionero.CALLAR);
             jugadasFichero.add(OntologiaDilemaPrisionero.CALLAR);
             return OntologiaDilemaPrisionero.CALLAR;
+        }
+
+        if (rondas.get(oponenteActual).size() == 2) { //Veamos si me sigue el juego de callarnos
+            if (OntologiaDilemaPrisionero.CALLAR.equals(rondas.get(oponenteActual).get(1))) {
+                return OntologiaDilemaPrisionero.CALLAR;
+            } else {
+                return OntologiaDilemaPrisionero.HABLAR;
+            }
+        }
+
+        if (rondas.get(oponenteActual).get(rondas.get(oponenteActual).size() - 1).equals(OntologiaDilemaPrisionero.CALLAR) && rondas.get(oponenteActual).get(rondas.get(oponenteActual).size() - 2).equals(OntologiaDilemaPrisionero.CALLAR)) {
+            return OntologiaDilemaPrisionero.CALLAR;
+        } else {
+            return OntologiaDilemaPrisionero.HABLAR;
         }
     }
 
