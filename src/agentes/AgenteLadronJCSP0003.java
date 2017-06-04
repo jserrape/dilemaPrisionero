@@ -1,6 +1,3 @@
-//  -gui -agents ladron1:agentes.AgenteLadron;ladron2:agentes.AgenteLadron;ladron3:agentes.AgenteLadron;ladron4:agentes.AgenteLadron;Consola:agentes.AgenteConsola;Policia:agentes.AgentePolicia;
-//  -container -host 192.168.38.100 -agents jcsp0003:agentes.AgenteLadron;jcsp0003C:agentes.AgenteConsola
-//  -container -host 192.168.36.100 -agents SerranoPerez:agentes.AgenteLadron;SerranoPerezC:agentes.AgenteConsola
 package agentes;
 
 import dilemaPrisionero.OntologiaDilemaPrisionero;
@@ -53,7 +50,7 @@ import util.ContenedorPartida;
  * 
  * @author jcsp0003
  */
-public class AgenteLadron extends Agent {
+public class AgenteLadronJCSP0003 extends Agent {
 
     private Map<String, ContenedorPartida> partidasIniciadas;
     private final Codec codec = new SLCodec();
@@ -87,7 +84,7 @@ public class AgenteLadron extends Agent {
         try {
             ontologia = OntologiaDilemaPrisionero.getInstance();
         } catch (BeanOntologyException ex) {
-            Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(AgenteLadronJCSP0003.class.getName()).log(Level.SEVERE, null, ex);
         }
         try {
             manager.registerLanguage(codec);
@@ -209,7 +206,7 @@ public class AgenteLadron extends Agent {
                     }
                 }
             } catch (Codec.CodecException | OntologyException ex) {
-                Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(AgenteLadronJCSP0003.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
 
@@ -270,7 +267,7 @@ public class AgenteLadron extends Agent {
                 pp = (ProponerPartida) ac.getAction();
                 p = pp.getPartida();
             } catch (Codec.CodecException | OntologyException ex) {
-                Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(AgenteLadronJCSP0003.class.getName()).log(Level.SEVERE, null, ex);
             }
 
             Jugador j = new Jugador(this.myAgent.getLocalName(), this.myAgent.getAID());
@@ -283,7 +280,7 @@ public class AgenteLadron extends Agent {
             try {
                 manager.fillContent(agree, pa);
             } catch (Codec.CodecException | OntologyException ex) {
-                Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(AgenteLadronJCSP0003.class.getName()).log(Level.SEVERE, null, ex);
             }
 
             //Almaceno la partida
@@ -348,7 +345,7 @@ public class AgenteLadron extends Agent {
                 entJug = (EntregarJugada) ac.getAction();
                 jugadores = entJug.getJugadores();
             } catch (Codec.CodecException | OntologyException ex) {
-                Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(AgenteLadronJCSP0003.class.getName()).log(Level.SEVERE, null, ex);
             }
 
             ACLMessage respuesta = cfp.createReply();
@@ -367,7 +364,7 @@ public class AgenteLadron extends Agent {
                 try {
                     manager.fillContent(respuesta, jugEnt);
                 } catch (Codec.CodecException | OntologyException ex) {
-                    Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(AgenteLadronJCSP0003.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
 
@@ -389,7 +386,7 @@ public class AgenteLadron extends Agent {
             try {
                 resultado = (ResultadoJugada) manager.extractContent(accept);
             } catch (Codec.CodecException | OntologyException ex) {
-                Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(AgenteLadronJCSP0003.class.getName()).log(Level.SEVERE, null, ex);
             }
 
             if (partidasIniciadas.containsKey(resultado.getPartida().getIdPartida())) {

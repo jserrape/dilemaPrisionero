@@ -128,7 +128,7 @@ public class AgentePolicia extends Agent {
         try {
             ontology = OntologiaDilemaPrisionero.getInstance();
         } catch (BeanOntologyException ex) {
-            Logger.getLogger(AgenteLadron.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(AgenteLadronJCSP0003.class.getName()).log(Level.SEVERE, null, ex);
         }
         manager.registerLanguage(codec);
 	manager.registerOntology(ontology);

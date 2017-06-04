@@ -1,1 +1,0 @@
-java -cp lib\jade.jar;lib\Ontologias.jar;build\classes jade.Boot -gui -agents ladron1:agentes.AgenteLadron;ladron2:agentes.AgenteLadron;ladron3:agentes.AgenteLadron;ladron4:agentes.AgenteLadron;Consola:agentes.AgenteConsola;Policia:agentes.AgentePolicia;
